@@ -53,22 +53,44 @@
       </p>
     </section>
 
+    <!-- Dual-Mode Mission Switcher -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; flex-wrap: wrap; gap: 12px;">
+      <div class="mode-toggle-group" id="missionModeGroup">
+        <button type="button" class="mode-btn" data-mode="ORBITAL_SURVEILLANCE" id="btnModeOrbital">
+          🛰️ Orbital Surveillance Mode (NASA/ESA)
+        </button>
+        <button type="button" class="mode-btn active" data-mode="GROUND_DEMONSTRATOR" id="btnModeGround">
+          🎯 Ground Demonstrator Mode (Tethered Net GNC)
+        </button>
+      </div>
+
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <span class="badge-pill badge-active" id="liveFpsPill" style="font-family: var(--font-mono); font-size: 0.75rem;">LIVE: 30.0 FPS // 18.2 ms</span>
+        <button type="button" class="hud-btn hud-btn-secondary" id="btnCaptureLabFrame" style="padding: 5px 12px; font-size: 0.76rem; margin:0;">
+          📷 Capture Lab Frame
+        </button>
+      </div>
+    </div>
+
     <!-- Navigation Tabs -->
     <nav class="tabs-nav" aria-label="Dashboard Navigation">
-      <button class="tab-btn active" data-tab="tabVideo" id="tabBtnVideo">
+      <button class="tab-btn active" data-tab="tabLive" id="tabBtnLive">
+        📡 Real-Time Live Stream & 3D GNC
+      </button>
+      <button class="tab-btn" data-tab="tabVideo" id="tabBtnVideo">
         🎬 Orbital Video Tracking
       </button>
       <button class="tab-btn" data-tab="tabGallery" id="tabBtnGallery">
         🚀 Space Object Gallery
       </button>
       <button class="tab-btn" data-tab="tabTelemetry" id="tabBtnTelemetry">
-        📋 Flight Telemetry Table
+        📋 Flight & Capture Telemetry Table
       </button>
       <button class="tab-btn" data-tab="tabBenchmarks" id="tabBtnBenchmarks">
         📊 Model Benchmarks
       </button>
       <button class="tab-btn" data-tab="tabStandards" id="tabBtnStandards">
-        ⚖️ Aerospace Standards & Physics
+        ⚖️ Aerospace Standards & GNC Physics
       </button>
       <button class="tab-btn" data-tab="tabTaxonomy" id="tabBtnTaxonomy">
         🛰️ Space Object Taxonomy
@@ -105,9 +127,128 @@
     </section>
 
     <!-- ==================================================================== -->
+    <!-- TAB 0: REAL-TIME LIVE SENSOR FEED & 3D GNC (SPACI 3.0 PRIMARY)       -->
+    <!-- ==================================================================== -->
+    <div class="tab-panel" id="tabLive">
+      <div class="workspace-layout">
+        
+        <!-- Left: Live Sensor Viewport & Overlays -->
+        <section class="glass-panel" style="margin-bottom: 0;">
+          <div class="panel-header" style="flex-wrap: wrap; gap: 8px;">
+            <div class="panel-title">
+              <span>👁️ Real-Time Sensor Stream</span>
+              <span id="liveDepthBadge" class="badge-pill badge-active" style="margin-left: 8px; font-size: 0.7rem;">RAYCAST_LIDAR (3D FUSION)</span>
+            </div>
+            
+            <!-- Live Source Selectors -->
+            <div class="source-btn-group" id="liveSourceGroup">
+              <button type="button" class="source-btn active" data-source="TESTBENCH">🌌 3D Physics Testbench</button>
+              <button type="button" class="source-btn" data-source="VIDEO_LOOP">🎬 Video Stream Loop</button>
+              <button type="button" class="source-btn" data-source="WEBCAM">📷 Lab Webcam</button>
+            </div>
+          </div>
+
+          <!-- Live Viewport Stage -->
+          <div class="viewport-stage" id="liveViewportStage" style="position: relative; min-height: 480px; display: flex; align-items: center; justify-content: center; background: #010308; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); overflow: hidden;">
+            <img id="liveStreamImg" style="width: 100%; height: auto; max-height: 560px; object-fit: contain; display: block;" src="" alt="SPACI 3.0 Live Stream">
+            <div class="hud-overlay-reticle" id="liveReticleText">LIVE ATOMIC WS // FOV: 640×640 // LOCK: ACQUIRING...</div>
+          </div>
+
+          <!-- Real-Time GNC Verdict Banner -->
+          <div class="insights-summary-banner" id="liveGncBanner" style="margin-top: 10px; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 8px; padding: 10px 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="badge-pill badge-ready" id="gncStateBadge">FIRE_READY</span>
+                <span id="gncTargetLockText" style="font-weight: 600; color: var(--text-main); font-size: 0.85rem;">Target #1 (debris) — Intercept Range: 2.85m</span>
+              </div>
+              <div style="font-size: 0.78rem; font-family: var(--font-mono); color: var(--accent-cyan);" id="gncAnglesText">
+                Pan: +4.2° | Tilt: +12.8° | Flight Time: 0.34s | Net Opening: 88%
+              </div>
+              <div style="font-size: 0.78rem; font-weight: 600; color: #34d399;" id="gncActionDirective">
+                🟢 READY: All 6 Go/No-Go Conditions Cleared
+              </div>
+            </div>
+          </div>
+
+          <!-- Tactical Trajectory Radar (Top-Down X-Z and Side-Elevation Y-Z) -->
+          <div class="panel-header" style="margin-top: 14px; margin-bottom: 4px;">
+            <div class="panel-title" style="font-size: 0.82rem;">🎯 Tactical Trajectory Radar & Parabolic Ballistic Net Arc</div>
+          </div>
+          <div class="radar-grid">
+            <div class="radar-card">
+              <div class="radar-title">TOP-DOWN RADAR VIEW (X - Z PLANE)</div>
+              <canvas id="radarXz" class="radar-canvas" width="280" height="180"></canvas>
+            </div>
+            <div class="radar-card">
+              <div class="radar-title">SIDE-ELEVATION RADAR VIEW (Y - Z PLANE)</div>
+              <canvas id="radarYz" class="radar-canvas" width="280" height="180"></canvas>
+            </div>
+          </div>
+        </section>
+
+        <!-- Right: GNC Parameters & Actuator Monitor -->
+        <aside class="glass-panel" style="margin-bottom: 0;">
+          <div class="panel-header">
+            <div class="panel-title">🎛️ Tethered Net GNC Controls</div>
+          </div>
+
+          <div class="control-group">
+            <div class="control-label">
+              <span>Net Launch Velocity (v_net)</span>
+              <span class="control-val" id="vNetVal">9.0 m/s</span>
+            </div>
+            <input type="range" class="hud-slider" id="vNetSlider" min="5.0" max="15.0" step="0.5" value="9.0">
+          </div>
+
+          <div class="control-group">
+            <div class="control-label">
+              <span>Actuator Latency (t_lat)</span>
+              <span class="control-val" id="tLatVal">0.08 s</span>
+            </div>
+            <input type="range" class="hud-slider" id="tLatSlider" min="0.02" max="0.20" step="0.01" value="0.08">
+          </div>
+
+          <div class="control-group">
+            <div class="control-label">
+              <span>Net Diameter (D_net)</span>
+              <span class="control-val" id="dNetVal">1.2 m</span>
+            </div>
+            <input type="range" class="hud-slider" id="dNetSlider" min="0.6" max="2.0" step="0.1" value="1.2">
+          </div>
+
+          <!-- GNC Toggles -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px;">
+            <label style="display: flex; align-items: center; justify-content: space-between; background: rgba(15, 23, 42, 0.6); padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border-subtle); cursor: pointer;">
+              <span style="font-size: 0.74rem; font-weight: 600; color: var(--accent-cyan);">🧲 Ferrous Assist</span>
+              <input type="checkbox" id="magneticToggle" style="accent-color: var(--accent-cyan);">
+            </label>
+            <label style="display: flex; align-items: center; justify-content: space-between; background: rgba(15, 23, 42, 0.6); padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border-subtle); cursor: pointer;">
+              <span style="font-size: 0.74rem; font-weight: 600; color: #34d399;">⚡ Auto-Fire</span>
+              <input type="checkbox" id="autoFireToggle" style="accent-color: #34d399;">
+            </label>
+          </div>
+
+          <!-- Fire Button -->
+          <div style="margin-top: 1rem;">
+            <button type="button" class="hud-btn hud-btn-primary" id="btnFireNet" style="width: 100%; padding: 10px; font-weight: 800; background: linear-gradient(135deg, rgba(16, 185, 129, 0.35), rgba(14, 165, 233, 0.45)); border-color: #10b981;">
+              🚀 Fire Pneumatic Net (Manual Launch)
+            </button>
+          </div>
+
+          <!-- Hardware Telemetry Monitor -->
+          <div style="margin-top: 1.2rem;">
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); margin-bottom: 4px;">LIVE ACTUATOR BUS TELEMETRY (JSON):</div>
+            <div class="hw-monitor-box" id="hwMonitorJson">Awaiting GNC telemetry packet...</div>
+          </div>
+        </aside>
+
+      </div>
+    </div>
+
+    <!-- ==================================================================== -->
     <!-- TAB 1: ORBITAL VIDEO TRACKING & KINEMATICS                           -->
     <!-- ==================================================================== -->
-    <div class="tab-panel" id="tabVideo">
+    <div class="tab-panel hidden" id="tabVideo">
       <div class="workspace-layout">
         
         <!-- Left: HUD Video Viewport Stage -->
@@ -320,6 +461,15 @@
               <input type="checkbox" id="ttaToggle" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent-cyan);">
             </label>
             <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">Multi-scale Test-Time Augmentation (+29.8% on difficult classes)</div>
+          </div>
+
+          <!-- 2x2 Tiled Small-Debris Inspection Toggle -->
+          <div class="control-group" style="background: rgba(192, 132, 252, 0.05); padding: 12px; border-radius: 8px; border: 1px solid rgba(192, 132, 252, 0.2); margin-top: 10px;">
+            <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+              <span style="font-size: 0.85rem; font-weight: 600; color: #c084fc;">🔍 2×2 Tiled Small-Debris Mode</span>
+              <input type="checkbox" id="tiledToggle" style="width: 18px; height: 18px; cursor: pointer; accent-color: #c084fc;">
+            </label>
+            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">Overlapping 2x2 sub-patches + NMS merge for ultra-small debris recall</div>
           </div>
 
           <!-- Active Target Inspection Card -->

@@ -749,4 +749,142 @@ body {
   box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
 }
 
+/* ==========================================================================
+   SPACI 3.0 Live Engine, GNC & Tactical Radar Styles
+   ========================================================================== */
+
+/* Mission Mode Toggle */
+.mode-toggle-group {
+  display: inline-flex;
+  background: rgba(15, 23, 42, 0.85);
+  padding: 4px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-focus);
+  gap: 4px;
+}
+
+.mode-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-family: var(--font-main);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.mode-btn:hover {
+  color: var(--text-main);
+}
+
+.mode-btn.active {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.4), rgba(129, 140, 248, 0.5));
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.4);
+}
+
+/* Live Stream Source Switcher */
+.source-btn-group {
+  display: flex;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.7);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  align-items: center;
+}
+
+.source-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  padding: 5px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.source-btn:hover {
+  color: var(--text-main);
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.source-btn.active {
+  background: rgba(56, 189, 248, 0.25);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  font-weight: 700;
+}
+
+/* Tactical Trajectory Radar Canvases */
+.radar-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.radar-card {
+  background: #02040a;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  text-align: center;
+  position: relative;
+}
+
+.radar-title {
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  color: var(--accent-cyan);
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+}
+
+.radar-canvas {
+  width: 100%;
+  height: 180px;
+  background: radial-gradient(circle at 50% 90%, rgba(14, 165, 233, 0.1) 0%, #010308 80%);
+  border-radius: 4px;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  display: block;
+}
+
+/* Live Hardware Telemetry Monitor */
+.hw-monitor-box {
+  background: rgba(6, 9, 19, 0.85);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: #38bdf8;
+  max-height: 140px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Status Badges */
+.badge-ready {
+  background: rgba(16, 185, 129, 0.25);
+  color: #34d399;
+  border: 1px solid #10b981;
+  font-weight: 700;
+  animation: pulseAnimation 1.5s infinite;
+}
+
+.badge-abort {
+  background: rgba(239, 68, 68, 0.25);
+  color: #f87171;
+  border: 1px solid #ef4444;
+  font-weight: 700;
+}
+
+
 

@@ -1,22 +1,33 @@
 /**
- * SPACI 2.0 - Aerospace Mission Control HUD Controller
- * Pure Vanilla JavaScript: Multi-Workspace HUD, Video Kinematics, Live Telemetry
+ * SPACI 3.0 - Aerospace Mission Control & Closed-Form Ballistic GNC HUD
+ * Pure Vanilla JavaScript: Atomic WebSocket (/ws/live), Ray-Cast LiDAR, Tactical Radar, Dual-Mode Engine
  */
 
 // ============================================================================
 // State Management
 // ============================================================================
 const state = {
-  // Navigation
-  activeTab: "tabVideo",
+  // Navigation & Mission Mode
+  activeTab: "tabLive",
+  missionMode: "GROUND_DEMONSTRATOR", // 'ORBITAL_SURVEILLANCE' or 'GROUND_DEMONSTRATOR'
 
-  // Global Telemetry Data (Displayed in Dedicated Table & Exported)
+  // Live Engine & WebSocket
+  ws: null,
+  liveSource: "TESTBENCH",
+  vNet: 9.0,
+  tLat: 0.08,
+  dNet: 1.2,
+  magneticAssist: false,
+  autoFire: false,
+  lastGncCommand: null,
+
+  // Global Telemetry Data (Displayed in Table & Exported)
   currentTelemetry: [],
   currentSummary: null,
   tableFilter: "all",
 
   // Video Mode State
-  isVideoMode: true,
+  isVideoMode: false,
   videoFile: null,
   videoTracks: [],
   videoSummary: null,
@@ -34,6 +45,7 @@ const state = {
   galleryConf: 0.50,
   galleryIou: 0.45,
   augment: false,
+  tiledInspection: false,
 };
 
 // State Color Mapping
@@ -58,6 +70,9 @@ function debounce(fn, delay = 220) {
 // ============================================================================
 document.addEventListener("DOMContentLoaded", () => {
   initTabs();
+  initModeSwitcher();
+  initLiveWebSocket();
+  initLiveControls();
   initViewToggles();
   initVideoControls();
   initGalleryControls();
@@ -66,16 +81,62 @@ document.addEventListener("DOMContentLoaded", () => {
   initFileUploads();
   initGallery();
   loadBenchmarks();
-
-  // Auto-run video tracking on initial load for instant mission intelligence
-  setTimeout(() => {
-    runDemoVideo();
-  }, 300);
+  updateKpiSummary();
 });
 
 // ============================================================================
-// 1. Tab Navigation & Workspace Switching
+// 1. Mission Mode Switcher & Tab Navigation
 // ============================================================================
+function initModeSwitcher() {
+  const btnOrbital = document.getElementById("btnModeOrbital");
+  const btnGround = document.getElementById("btnModeGround");
+
+  const setMode = async (mode) => {
+    state.missionMode = mode;
+    btnOrbital.classList.toggle("active", mode === "ORBITAL_SURVEILLANCE");
+    btnGround.classList.toggle("active", mode === "GROUND_DEMONSTRATOR");
+
+    try {
+      await fetch("/api/mode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode }),
+      });
+    } catch (e) {
+      console.warn("Mode sync notice:", e);
+    }
+
+    // Adapt top KPI labels based on mode
+    updateTopKpiLabels();
+  };
+
+  if (btnOrbital) btnOrbital.addEventListener("click", () => setMode("ORBITAL_SURVEILLANCE"));
+  if (btnGround) btnGround.addEventListener("click", () => setMode("GROUND_DEMONSTRATOR"));
+}
+
+function updateTopKpiLabels() {
+  const isGround = state.missionMode === "GROUND_DEMONSTRATOR";
+  const c1 = document.querySelector("#kpiCardTotal .kpi-label");
+  const c2 = document.querySelector("#kpiCardHazardous .kpi-label");
+  const c3 = document.querySelector("#kpiCardReusable .kpi-label");
+  const c4 = document.querySelector("#kpiCardActive .kpi-label");
+  const c5 = document.querySelector("#kpiCardRisk .kpi-label");
+
+  if (isGround) {
+    if (c1) c1.textContent = "Tracked Targets";
+    if (c2) c2.textContent = "GNC Gate Status";
+    if (c3) c3.textContent = "Deployment Distance";
+    if (c4) c4.textContent = "Capture Success Rate";
+    if (c5) c5.textContent = "3D Miss Error";
+  } else {
+    if (c1) c1.textContent = "Field of View Targets";
+    if (c2) c2.textContent = "Hazardous Threat";
+    if (c3) c3.textContent = "Reusable / Salvage";
+    if (c4) c4.textContent = "Useful / Active";
+    if (c5) c5.textContent = "Mean Risk Index";
+  }
+}
+
 function initTabs() {
   const tabBtns = document.querySelectorAll(".tab-btn");
 
@@ -86,12 +147,9 @@ function initTabs() {
     });
   });
 
-  // Shortcut button inside Video Control panel to navigate to Telemetry table
   const btnGoToTelemetry = document.getElementById("btnGoToTelemetry");
   if (btnGoToTelemetry) {
-    btnGoToTelemetry.addEventListener("click", () => {
-      switchTab("tabTelemetry");
-    });
+    btnGoToTelemetry.addEventListener("click", () => switchTab("tabTelemetry"));
   }
 }
 
@@ -106,7 +164,6 @@ function switchTab(tabId) {
     panel.classList.toggle("hidden", panel.id !== tabId);
   });
 
-  // Resume video playback when returning to Video workspace
   if (tabId === "tabVideo") {
     const hudVideo = document.getElementById("hudVideo");
     if (hudVideo && hudVideo.style.display !== "none" && hudVideo.src) {
@@ -116,7 +173,422 @@ function switchTab(tabId) {
 }
 
 // ============================================================================
-// 2. Viewport Stream / Keyframe Toggles (Video HUD)
+// 2. Real-Time Atomic WebSocket Engine (/ws/live) & Tactical Radar
+// ============================================================================
+function initLiveWebSocket() {
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const wsUrl = `${protocol}//${window.location.host}/ws/live`;
+
+  function connect() {
+    state.ws = new WebSocket(wsUrl);
+
+    state.ws.onopen = () => {
+      console.log("[SPACI 3.0] WebSocket Live Stream connected.");
+      const reticle = document.getElementById("liveReticleText");
+      if (reticle) reticle.textContent = "LIVE ATOMIC WS // FOV: 640×640 // LOCK: ACTIVE";
+    };
+
+    state.ws.onmessage = (event) => {
+      try {
+        const packet = JSON.parse(event.data);
+        handleLivePacket(packet);
+      } catch (err) {
+        console.warn("WebSocket parse error:", err);
+      }
+    };
+
+    state.ws.onclose = () => {
+      console.warn("[SPACI 3.0] WebSocket disconnected. Reconnecting in 1.5s...");
+      setTimeout(connect, 1500);
+    };
+
+    state.ws.onerror = (err) => {
+      console.error("[SPACI 3.0] WebSocket error:", err);
+    };
+  }
+
+  connect();
+}
+
+function handleLivePacket(packet) {
+  // 1. Update Video Frame
+  const streamImg = document.getElementById("liveStreamImg");
+  if (streamImg && packet.frame_b64) {
+    streamImg.src = packet.frame_b64;
+  }
+
+  // 2. Update Performance Badges
+  const fpsPill = document.getElementById("liveFpsPill");
+  if (fpsPill) {
+    fpsPill.textContent = `LIVE: ${packet.fps} FPS // ${packet.latency_ms} ms`;
+  }
+
+  const depthBadge = document.getElementById("liveDepthBadge");
+  if (depthBadge) {
+    depthBadge.textContent = `${packet.depth_source} (3D FUSION)`;
+  }
+
+  // 3. Update GNC Verdict Banner
+  const gnc = packet.gnc_command;
+  state.lastGncCommand = gnc;
+
+  const stateBadge = document.getElementById("gncStateBadge");
+  const lockText = document.getElementById("gncTargetLockText");
+  const anglesText = document.getElementById("gncAnglesText");
+  const directive = document.getElementById("gncActionDirective");
+
+  if (gnc) {
+    const isReady = gnc.state === "FIRE_READY";
+    const isAbort = gnc.state.startsWith("ABORT");
+
+    if (stateBadge) {
+      stateBadge.className = `badge-pill ${isReady ? 'badge-ready' : (isAbort ? 'badge-abort' : 'badge-reusable')}`;
+      stateBadge.textContent = gnc.state;
+    }
+
+    if (lockText) {
+      const lockedTid = packet.locked_track_id || gnc.track_id;
+      const targetObj = packet.tracks?.find(t => t.track_id === lockedTid);
+      const cname = targetObj?.class_name || "debris";
+      const zInt = gnc.intercept_pos ? gnc.intercept_pos[2].toFixed(2) : "N/A";
+      lockText.textContent = `Target #${lockedTid} (${cname}) — Intercept Range: ${zInt}m`;
+    }
+
+    if (anglesText) {
+      anglesText.textContent = `Pan: ${gnc.pan_deg > 0 ? '+' : ''}${gnc.pan_deg}° | Tilt: ${gnc.tilt_deg > 0 ? '+' : ''}${gnc.tilt_deg}° | Flight: ${gnc.t_flight_s}s | Aperture: ${gnc.net_open_pct}%`;
+    }
+
+    if (directive) {
+      if (isReady) {
+        directive.style.color = "#34d399";
+        directive.textContent = "🟢 READY: All 6 Go/No-Go Safety Conditions Cleared";
+      } else if (isAbort) {
+        directive.style.color = "#f87171";
+        directive.textContent = `⚠️ ${gnc.state}: ${gnc.abort_reason || gnc.status_message}`;
+      } else {
+        directive.style.color = "var(--accent-cyan)";
+        directive.textContent = `🔵 ${gnc.status_message}`;
+      }
+    }
+  }
+
+  // 4. Update Hardware Bus Monitor
+  const hwMon = document.getElementById("hwMonitorJson");
+  if (hwMon && gnc) {
+    hwMon.textContent = JSON.stringify(gnc, null, 2);
+  }
+
+  // 5. Draw Tactical Trajectory Radar
+  if (packet.radar_state) {
+    renderTacticalRadar(packet.radar_state);
+  }
+
+  // 6. Update Top KPIs if in Ground Mode
+  if (state.missionMode === "GROUND_DEMONSTRATOR") {
+    const tCount = packet.tracks?.length || 0;
+    const k1 = document.getElementById("kpiTotal");
+    const k2 = document.getElementById("kpiHazardous");
+    const k3 = document.getElementById("kpiReusable");
+
+    if (k1) k1.textContent = tCount;
+    if (k2) {
+      k2.textContent = gnc ? gnc.state : "SEARCHING";
+      k2.style.color = gnc?.state === "FIRE_READY" ? "var(--state-active)" : (gnc?.state?.startsWith("ABORT") ? "var(--state-hazardous)" : "var(--accent-cyan)");
+    }
+    if (k3) {
+      const zVal = gnc?.intercept_pos ? `${gnc.intercept_pos[2].toFixed(2)} m` : "—";
+      k3.textContent = zVal;
+      k3.style.color = "var(--accent-cyan)";
+    }
+  }
+}
+
+// ============================================================================
+// 3. Tactical Trajectory Radar Renderer (HTML5 Canvas)
+// ============================================================================
+function renderTacticalRadar(radarState) {
+  const canvasXz = document.getElementById("radarXz");
+  const canvasYz = document.getElementById("radarYz");
+  if (!canvasXz || !canvasYz) return;
+
+  const ctxXz = canvasXz.getContext("2d");
+  const ctxYz = canvasYz.getContext("2d");
+
+  const w = canvasXz.width;
+  const h = canvasXz.height;
+
+  // Scale: 7.0 meters max depth -> canvas height
+  const maxRange = 7.0;
+  const scaleZ = (h - 25) / maxRange;
+
+  // --- Top-Down Radar (X - Z Plane) ---
+  ctxXz.clearRect(0, 0, w, h);
+  const cx = w / 2;
+  const originZ = h - 15;
+
+  // Draw Range Rings (2m, 4m, 6m)
+  ctxXz.strokeStyle = "rgba(56, 189, 248, 0.18)";
+  ctxXz.lineWidth = 1;
+  ctxXz.fillStyle = "rgba(100, 116, 139, 0.6)";
+  ctxXz.font = "9px 'JetBrains Mono', monospace";
+
+  [2.0, 4.0, 6.0].forEach(r => {
+    const rPx = r * scaleZ;
+    ctxXz.beginPath();
+    ctxXz.arc(cx, originZ, rPx, Math.PI, 2 * Math.PI);
+    ctxXz.stroke();
+    ctxXz.fillText(`${r}m`, cx + 4, originZ - rPx + 10);
+  });
+
+  // Launcher FOV Wedge (+-30 deg)
+  const angleRad = (30.0 * Math.PI) / 180.0;
+  const edgeLen = 6.8 * scaleZ;
+  ctxXz.strokeStyle = "rgba(14, 165, 233, 0.35)";
+  ctxXz.beginPath();
+  ctxXz.moveTo(cx, originZ);
+  ctxXz.lineTo(cx - edgeLen * Math.sin(angleRad), originZ - edgeLen * Math.cos(angleRad));
+  ctxXz.moveTo(cx, originZ);
+  ctxXz.lineTo(cx + edgeLen * Math.sin(angleRad), originZ - edgeLen * Math.cos(angleRad));
+  ctxXz.stroke();
+
+  // Launcher Origin
+  ctxXz.fillStyle = "#38bdf8";
+  ctxXz.beginPath();
+  ctxXz.arc(cx, originZ, 4, 0, 2 * Math.PI);
+  ctxXz.fill();
+
+  // Plot Radar Targets (X - Z)
+  (radarState.targets || []).forEach(t => {
+    const px = cx + (t.x_m * scaleZ);
+    const pz = originZ - (t.z_m * scaleZ);
+
+    ctxXz.fillStyle = t.class_name === "debris" ? "#ef4444" : "#10b981";
+    ctxXz.beginPath();
+    ctxXz.arc(px, pz, 5, 0, 2 * Math.PI);
+    ctxXz.fill();
+
+    ctxXz.fillStyle = "#e2e8f0";
+    ctxXz.fillText(`#${t.track_id} ${t.class_name.slice(0, 6)}`, px + 7, pz + 3);
+  });
+
+  // Plot Parabolic Net Arc (Top-Down projection)
+  const arc = radarState.net_arc_3d || [];
+  if (arc.length > 1) {
+    ctxXz.strokeStyle = "rgba(52, 211, 153, 0.9)";
+    ctxXz.lineWidth = 2;
+    ctxXz.beginPath();
+    arc.forEach((pt, idx) => {
+      const ax = cx + (pt[0] * scaleZ);
+      const az = originZ - (pt[2] * scaleZ);
+      if (idx === 0) ctxXz.moveTo(ax, az);
+      else ctxXz.lineTo(ax, az);
+    });
+    ctxXz.stroke();
+  }
+
+  // --- Side-Elevation Radar (Y - Z Plane) ---
+  ctxYz.clearRect(0, 0, w, h);
+  const groundY = h - 45; // Launcher optical height baseline
+
+  // Range grid
+  ctxYz.strokeStyle = "rgba(56, 189, 248, 0.18)";
+  ctxYz.lineWidth = 1;
+  [2.0, 4.0, 6.0].forEach(r => {
+    const rZ = 20 + (r * scaleZ);
+    ctxYz.beginPath();
+    ctxYz.moveTo(rZ, 10);
+    ctxYz.lineTo(rZ, h - 10);
+    ctxYz.stroke();
+    ctxYz.fillStyle = "rgba(100, 116, 139, 0.6)";
+    ctxYz.fillText(`${r}m`, rZ + 3, h - 12);
+  });
+
+  // Ground plane
+  ctxYz.strokeStyle = "rgba(100, 116, 139, 0.4)";
+  ctxYz.beginPath();
+  ctxYz.moveTo(10, groundY);
+  ctxYz.lineTo(w - 10, groundY);
+  ctxYz.stroke();
+
+  // Launcher Origin
+  ctxYz.fillStyle = "#38bdf8";
+  ctxYz.beginPath();
+  ctxYz.arc(20, groundY, 4, 0, 2 * Math.PI);
+  ctxYz.fill();
+
+  // Plot Radar Targets (Y - Z)
+  (radarState.targets || []).forEach(t => {
+    const pz = 20 + (t.z_m * scaleZ);
+    const py = groundY - (t.y_m * scaleZ);
+
+    ctxYz.fillStyle = t.class_name === "debris" ? "#ef4444" : "#10b981";
+    ctxYz.beginPath();
+    ctxYz.arc(pz, py, 5, 0, 2 * Math.PI);
+    ctxYz.fill();
+
+    ctxYz.fillStyle = "#e2e8f0";
+    ctxYz.fillText(`#${t.track_id} (${t.y_m > 0 ? '+' : ''}${t.y_m.toFixed(1)}m)`, pz + 7, py + 3);
+  });
+
+  // Plot Parabolic Gravity-Curved Net Arc (Side Elevation: shows projectile gravity sag)
+  if (arc.length > 1) {
+    ctxYz.strokeStyle = "rgba(52, 211, 153, 0.9)";
+    ctxYz.lineWidth = 2;
+    ctxYz.beginPath();
+    arc.forEach((pt, idx) => {
+      const az = 20 + (pt[2] * scaleZ);
+      const ay = groundY - (pt[1] * scaleZ);
+      if (idx === 0) ctxYz.moveTo(az, ay);
+      else ctxYz.lineTo(az, ay);
+    });
+    ctxYz.stroke();
+  }
+}
+
+// ============================================================================
+// 4. Live GNC Controls & Sliders
+// ============================================================================
+function initLiveControls() {
+  const syncParams = debounce(async () => {
+    try {
+      await fetch("/api/live/params", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          v_net: state.vNet,
+          t_lat: state.tLat,
+          d_net: state.dNet,
+          magnetic_assist: state.magneticAssist,
+          auto_fire: state.autoFire,
+        }),
+      });
+    } catch (e) {
+      console.warn("GNC param sync notice:", e);
+    }
+  }, 200);
+
+  // Source Switcher
+  const sourceButtons = document.querySelectorAll("#liveSourceGroup .source-btn");
+  sourceButtons.forEach(btn => {
+    btn.addEventListener("click", async () => {
+      sourceButtons.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      state.liveSource = btn.getAttribute("data-source");
+
+      try {
+        await fetch("/api/live/source", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ source: state.liveSource }),
+        });
+      } catch (e) {
+        console.warn("Source change notice:", e);
+      }
+    });
+  });
+
+  // Lab Frame Capture
+  const btnCapture = document.getElementById("btnCaptureLabFrame");
+  if (btnCapture) {
+    btnCapture.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/capture-lab-frame", { method: "POST" });
+        const d = await res.json();
+        alert(`Lab frame successfully queued: ${d.message}`);
+      } catch (err) {
+        alert("Capture failed: " + err.message);
+      }
+    });
+  }
+
+  // Sliders
+  const vSlider = document.getElementById("vNetSlider");
+  const vVal = document.getElementById("vNetVal");
+  if (vSlider) {
+    vSlider.addEventListener("input", (e) => {
+      state.vNet = parseFloat(e.target.value);
+      if (vVal) vVal.textContent = `${state.vNet.toFixed(1)} m/s`;
+      syncParams();
+    });
+  }
+
+  const tSlider = document.getElementById("tLatSlider");
+  const tVal = document.getElementById("tLatVal");
+  if (tSlider) {
+    tSlider.addEventListener("input", (e) => {
+      state.tLat = parseFloat(e.target.value);
+      if (tVal) tVal.textContent = `${state.tLat.toFixed(2)} s`;
+      syncParams();
+    });
+  }
+
+  const dSlider = document.getElementById("dNetSlider");
+  const dVal = document.getElementById("dNetVal");
+  if (dSlider) {
+    dSlider.addEventListener("input", (e) => {
+      state.dNet = parseFloat(e.target.value);
+      if (dVal) dVal.textContent = `${state.dNet.toFixed(1)} m`;
+      syncParams();
+    });
+  }
+
+  // Toggles
+  const magToggle = document.getElementById("magneticToggle");
+  if (magToggle) {
+    magToggle.addEventListener("change", (e) => {
+      state.magneticAssist = e.target.checked;
+      syncParams();
+    });
+  }
+
+  const autoToggle = document.getElementById("autoFireToggle");
+  if (autoToggle) {
+    autoToggle.addEventListener("change", (e) => {
+      state.autoFire = e.target.checked;
+      syncParams();
+    });
+  }
+
+  // Manual Fire Button
+  const btnFire = document.getElementById("btnFireNet");
+  if (btnFire) {
+    btnFire.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/kpi/fire", { method: "POST" });
+        const data = await res.json();
+        if (data.status === "fired") {
+          updateKpiSummary();
+          const trial = data.trial;
+          alert(`🎯 PNEUMATIC NET FIRED!\n\nTarget: ${trial.target_class}\nOutcome: ${trial.capture_success ? "✅ CAPTURED" : "❌ MISSED"}\n3D Miss Error: ${trial.miss_error_cm} cm\nEffective Net Radius: ${trial.effective_radius_cm} cm`);
+        } else {
+          alert(`Launch Notice: ${data.message}`);
+        }
+      } catch (err) {
+        alert("Launch command failed: " + err.message);
+      }
+    });
+  }
+}
+
+async function updateKpiSummary() {
+  try {
+    const res = await fetch("/api/kpi/summary");
+    const data = await res.json();
+
+    const k4 = document.getElementById("kpiActive");
+    const k5 = document.getElementById("kpiRisk");
+
+    if (state.missionMode === "GROUND_DEMONSTRATOR") {
+      if (k4) k4.textContent = `${data.capture_success_rate_pct}%`;
+      if (k5) k5.textContent = `${data.mean_miss_error_cm} cm`;
+    }
+  } catch (e) {
+    console.warn("KPI fetch notice:", e);
+  }
+}
+
+// ============================================================================
+// 5. Viewport Stream / Keyframe Toggles (Orbital Video)
 // ============================================================================
 function initViewToggles() {
   const btnVideo = document.getElementById("btnViewVideo");
@@ -151,7 +623,7 @@ function initViewToggles() {
 }
 
 // ============================================================================
-// 3. Video Workspace Tactical Controls & Sliders
+// 6. Video Workspace Controls & Kinematics Engine
 // ============================================================================
 function initVideoControls() {
   const debouncedRerunVideo = debounce(() => {
@@ -211,172 +683,6 @@ function initVideoControls() {
   }
 }
 
-// ============================================================================
-// 4. Space Object Gallery Controls & Sliders
-// ============================================================================
-function initGalleryControls() {
-  const debouncedRerunGallery = debounce(() => {
-    if (state.activeImageData || state.uploadedImageFile) {
-      runGalleryDetection();
-    }
-  }, 220);
-
-  const galleryConfSlider = document.getElementById("galleryConfSlider");
-  const galleryConfVal = document.getElementById("galleryConfVal");
-  if (galleryConfSlider && galleryConfVal) {
-    galleryConfSlider.addEventListener("input", (e) => {
-      state.galleryConf = parseFloat(e.target.value);
-      galleryConfVal.textContent = `${Math.round(state.galleryConf * 100)}%`;
-      debouncedRerunGallery();
-    });
-  }
-
-  const galleryIouSlider = document.getElementById("galleryIouSlider");
-  const galleryIouVal = document.getElementById("galleryIouVal");
-  if (galleryIouSlider && galleryIouVal) {
-    galleryIouSlider.addEventListener("input", (e) => {
-      state.galleryIou = parseFloat(e.target.value);
-      galleryIouVal.textContent = state.galleryIou.toFixed(2);
-      debouncedRerunGallery();
-    });
-  }
-
-  const ttaToggle = document.getElementById("ttaToggle");
-  if (ttaToggle) {
-    ttaToggle.addEventListener("change", (e) => {
-      state.augment = e.target.checked;
-      debouncedRerunGallery();
-    });
-  }
-}
-
-// ============================================================================
-// 5. Pre-Loaded Space Object Gallery Loader
-// ============================================================================
-async function initGallery() {
-  const container = document.getElementById("galleryStrip");
-  if (!container) return;
-
-  try {
-    const res = await fetch("/api/samples");
-    const data = await res.json();
-    const samples = data.samples || [];
-
-    container.innerHTML = "";
-    samples.forEach((s) => {
-      const card = document.createElement("div");
-      card.className = "gallery-card";
-      card.innerHTML = `
-        <img class="gallery-thumb" src="/api/samples/${s.filename}" alt="${s.label}">
-        <div class="gallery-name" title="${s.label}">${s.label}</div>
-        <div class="gallery-class">${s.class_name}</div>
-      `;
-      card.addEventListener("click", () => {
-        document.querySelectorAll(".gallery-card").forEach((c) => c.classList.remove("active"));
-        card.classList.add("active");
-        loadSample(s);
-      });
-      container.appendChild(card);
-    });
-
-    if (samples.length > 0) {
-      container.children[0]?.classList.add("active");
-      loadSample(samples[0], false); // Preload image data without stealing active focus
-    }
-  } catch (err) {
-    console.error("Failed to load sample gallery catalog:", err);
-  }
-}
-
-async function loadSample(sample, autoSwitch = true) {
-  state.uploadedImageFile = null;
-  state.activeSample = sample;
-
-  const statusEl = document.getElementById("galleryStatus");
-  if (statusEl) statusEl.textContent = `Source: Sample Catalog (${sample.label})`;
-
-  const infoEl = document.getElementById("galleryTargetInfo");
-  if (infoEl) infoEl.textContent = sample.label;
-
-  const imgUrl = `/api/samples/${sample.filename}`;
-  const img = new Image();
-  img.crossOrigin = "anonymous";
-  img.onload = () => {
-    state.activeImageData = img;
-    runGalleryDetection();
-  };
-  img.src = imgUrl;
-
-  if (autoSwitch && state.activeTab !== "tabGallery") {
-    switchTab("tabGallery");
-  }
-}
-
-// ============================================================================
-// 6. File Uploads (Videos & Images) & Drag-and-Drop
-// ============================================================================
-function initFileUploads() {
-  // Video Upload
-  const btnUploadVideo = document.getElementById("btnUploadVideo");
-  const videoInput = document.getElementById("videoInput");
-  const videoStage = document.getElementById("viewportStage");
-
-  if (btnUploadVideo && videoInput) {
-    btnUploadVideo.addEventListener("click", () => videoInput.click());
-    videoInput.addEventListener("change", (e) => {
-      if (e.target.files && e.target.files.length > 0) {
-        handleVideoFile(e.target.files[0]);
-        videoInput.value = "";
-      }
-    });
-  }
-
-  // Image Upload (in Gallery Tab)
-  const btnUploadImage = document.getElementById("btnUploadImage");
-  const imageInput = document.getElementById("imageInput");
-  if (btnUploadImage && imageInput) {
-    btnUploadImage.addEventListener("click", () => imageInput.click());
-    imageInput.addEventListener("change", (e) => {
-      if (e.target.files && e.target.files.length > 0) {
-        handleImageFile(e.target.files[0]);
-        imageInput.value = "";
-      }
-    });
-  }
-
-  // Video Drag-and-Drop
-  if (videoStage) {
-    videoStage.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      videoStage.style.borderColor = "var(--accent-cyan)";
-      videoStage.style.boxShadow = "0 0 24px rgba(56, 189, 248, 0.4)";
-    });
-
-    videoStage.addEventListener("dragleave", (e) => {
-      e.preventDefault();
-      videoStage.style.borderColor = "var(--border-subtle)";
-      videoStage.style.boxShadow = "none";
-    });
-
-    videoStage.addEventListener("drop", (e) => {
-      e.preventDefault();
-      videoStage.style.borderColor = "var(--border-subtle)";
-      videoStage.style.boxShadow = "none";
-      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        const file = e.dataTransfer.files[0];
-        if (file.type.startsWith("video/") || /\.(mp4|webm|avi|mov|mkv)$/i.test(file.name)) {
-          handleVideoFile(file);
-        } else {
-          handleImageFile(file);
-        }
-      }
-    });
-  }
-}
-
-// ============================================================================
-// 7. Video Kinematics Engine (1-Click Sample & Upload)
-// ============================================================================
 async function runDemoVideo() {
   state.isVideoMode = true;
   state.videoFile = null;
@@ -447,14 +753,12 @@ function processVideoResults(data, filename) {
   state.videoTracks = data.tracks || [];
   state.videoSummary = data.summary || {};
 
-  // Direct active telemetry stream to the global logger
   state.currentTelemetry = state.videoTracks;
   state.currentSummary = state.videoSummary;
 
   const hudVideo = document.getElementById("hudVideo");
   const hudCanvas = document.getElementById("hudCanvas");
 
-  // Draw representative keyframe on Canvas as guaranteed fallback
   if (data.representative_frame_base64 && hudCanvas) {
     const repImg = new Image();
     repImg.onload = () => {
@@ -466,7 +770,6 @@ function processVideoResults(data, filename) {
     repImg.src = data.representative_frame_base64;
   }
 
-  // Stream annotated video in HTML5 video player
   if (data.annotated_video_url && hudVideo) {
     hudVideo.pause();
     hudVideo.muted = true;
@@ -475,7 +778,6 @@ function processVideoResults(data, filename) {
     hudVideo.loop = true;
     hudVideo.controls = true;
 
-    // Cache-busting timestamp ensures freshly generated stream is fetched
     hudVideo.src = `${data.annotated_video_url}?t=${Date.now()}`;
     hudVideo.style.display = "block";
     if (hudCanvas) hudCanvas.style.display = "none";
@@ -485,34 +787,158 @@ function processVideoResults(data, filename) {
     };
 
     hudVideo.onerror = (e) => {
-      console.warn("Video playback error, displaying Keyframe HUD instead", e);
       hudVideo.style.display = "none";
       if (hudCanvas) hudCanvas.style.display = "block";
     };
-  } else {
-    if (hudVideo) hudVideo.style.display = "none";
-    if (hudCanvas) hudCanvas.style.display = "block";
   }
 
-  // Show toggle bar
   const toggleBar = document.getElementById("viewportToggleBar");
   if (toggleBar) toggleBar.style.display = "flex";
 
-  // Update Reticle Status
   const reticle = document.getElementById("reticleText");
   if (reticle) {
     reticle.textContent = `TRACKED ${data.processed_frames}/${data.total_frames} FRAMES // DURATION: ${data.duration_sec}s // FPS: ${data.fps} // ${state.videoTracks.length} TARGETS`;
   }
 
-  // Update Insights, Top KPIs & Telemetry Table
   updateInsightsBanner(state.videoSummary, state.videoTracks);
-  updateDashboardKPIs(state.videoSummary);
+  if (state.missionMode === "ORBITAL_SURVEILLANCE") {
+    updateDashboardKPIs(state.videoSummary);
+  }
   updateTelemetryTable();
 }
 
 // ============================================================================
-// 8. Space Object Gallery & Single-Frame Detection
+// 7. Space Object Gallery & 2x2 Tiled Small-Debris Inspection
 // ============================================================================
+function initGalleryControls() {
+  const debouncedRerunGallery = debounce(() => {
+    if (state.activeImageData || state.uploadedImageFile) {
+      runGalleryDetection();
+    }
+  }, 220);
+
+  const galleryConfSlider = document.getElementById("galleryConfSlider");
+  const galleryConfVal = document.getElementById("galleryConfVal");
+  if (galleryConfSlider && galleryConfVal) {
+    galleryConfSlider.addEventListener("input", (e) => {
+      state.galleryConf = parseFloat(e.target.value);
+      galleryConfVal.textContent = `${Math.round(state.galleryConf * 100)}%`;
+      debouncedRerunGallery();
+    });
+  }
+
+  const galleryIouSlider = document.getElementById("galleryIouSlider");
+  const galleryIouVal = document.getElementById("galleryIouVal");
+  if (galleryIouSlider && galleryIouVal) {
+    galleryIouSlider.addEventListener("input", (e) => {
+      state.galleryIou = parseFloat(e.target.value);
+      galleryIouVal.textContent = state.galleryIou.toFixed(2);
+      debouncedRerunGallery();
+    });
+  }
+
+  const ttaToggle = document.getElementById("ttaToggle");
+  if (ttaToggle) {
+    ttaToggle.addEventListener("change", (e) => {
+      state.augment = e.target.checked;
+      debouncedRerunGallery();
+    });
+  }
+
+  const tiledToggle = document.getElementById("tiledToggle");
+  if (tiledToggle) {
+    tiledToggle.addEventListener("change", (e) => {
+      state.tiledInspection = e.target.checked;
+      debouncedRerunGallery();
+    });
+  }
+}
+
+async function initGallery() {
+  const container = document.getElementById("galleryStrip");
+  if (!container) return;
+
+  try {
+    const res = await fetch("/api/samples");
+    const data = await res.json();
+    const samples = data.samples || [];
+
+    container.innerHTML = "";
+    samples.forEach((s) => {
+      const card = document.createElement("div");
+      card.className = "gallery-card";
+      card.innerHTML = `
+        <img class="gallery-thumb" src="/api/samples/${s.filename}" alt="${s.label}">
+        <div class="gallery-name" title="${s.label}">${s.label}</div>
+        <div class="gallery-class">${s.class_name}</div>
+      `;
+      card.addEventListener("click", () => {
+        document.querySelectorAll(".gallery-card").forEach((c) => c.classList.remove("active"));
+        card.classList.add("active");
+        loadSample(s);
+      });
+      container.appendChild(card);
+    });
+
+    if (samples.length > 0) {
+      container.children[0]?.classList.add("active");
+      loadSample(samples[0], false);
+    }
+  } catch (err) {
+    console.error("Failed to load sample gallery catalog:", err);
+  }
+}
+
+async function loadSample(sample, autoSwitch = true) {
+  state.uploadedImageFile = null;
+  state.activeSample = sample;
+
+  const statusEl = document.getElementById("galleryStatus");
+  if (statusEl) statusEl.textContent = `Source: Sample Catalog (${sample.label})`;
+
+  const infoEl = document.getElementById("galleryTargetInfo");
+  if (infoEl) infoEl.textContent = sample.label;
+
+  const imgUrl = `/api/samples/${sample.filename}`;
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => {
+    state.activeImageData = img;
+    runGalleryDetection();
+  };
+  img.src = imgUrl;
+
+  if (autoSwitch && state.activeTab !== "tabGallery") {
+    switchTab("tabGallery");
+  }
+}
+
+function initFileUploads() {
+  const btnUploadVideo = document.getElementById("btnUploadVideo");
+  const videoInput = document.getElementById("videoInput");
+  if (btnUploadVideo && videoInput) {
+    btnUploadVideo.addEventListener("click", () => videoInput.click());
+    videoInput.addEventListener("change", (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        handleVideoFile(e.target.files[0]);
+        videoInput.value = "";
+      }
+    });
+  }
+
+  const btnUploadImage = document.getElementById("btnUploadImage");
+  const imageInput = document.getElementById("imageInput");
+  if (btnUploadImage && imageInput) {
+    btnUploadImage.addEventListener("click", () => imageInput.click());
+    imageInput.addEventListener("change", (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        handleImageFile(e.target.files[0]);
+        imageInput.value = "";
+      }
+    });
+  }
+}
+
 async function handleImageFile(file) {
   if (!file) return;
   state.uploadedImageFile = file;
@@ -550,7 +976,7 @@ async function runGalleryDetection() {
   canvas.height = state.activeImageData.naturalHeight || state.activeImageData.height || 640;
   ctx.drawImage(state.activeImageData, 0, 0, canvas.width, canvas.height);
 
-  showGallerySpinner("EVALUATING DEEP TRANSFER LEARNING MODEL...");
+  showGallerySpinner(state.tiledInspection ? "EVALUATING 2×2 TILED CROPS..." : "EVALUATING YOLO11s INFERENCE...");
 
   try {
     let data;
@@ -582,42 +1008,23 @@ async function runGalleryDetection() {
       });
       if (!res.ok) throw new Error(`Detection error: ${res.status}`);
       data = await res.json();
-    } else {
-      const payload = {
-        image_base64: canvas.toDataURL("image/jpeg", 0.95),
-        conf_threshold: state.galleryConf,
-        iou_threshold: state.galleryIou,
-        speed_mps: state.telemetrySpeed,
-        altitude_km: state.telemetryAltitude,
-        augment: state.augment || false,
-      };
-      const res = await fetch("/api/detect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error(`Detection error: ${res.status}`);
-      data = await res.json();
     }
 
     state.imageDetections = data.detections || [];
     state.imageSummary = data.summary || {};
 
-    // Push into active telemetry pipeline
     state.currentTelemetry = state.imageDetections;
     state.currentSummary = state.imageSummary;
 
-    // Re-draw base image and render bounding boxes
+    // Draw image and bounding boxes
     ctx.drawImage(state.activeImageData, 0, 0, canvas.width, canvas.height);
     renderBoundingBoxes(ctx, state.imageDetections);
 
-    // Update Gallery Reticle
     const reticle = document.getElementById("galleryReticle");
     if (reticle) {
       reticle.textContent = `OPTICAL ACQUISITION: ${state.imageDetections.length} TARGETS IDENTIFIED // FOV ${canvas.width}×${canvas.height}`;
     }
 
-    // Update Target State Card
     const targetStateEl = document.getElementById("galleryTargetState");
     if (targetStateEl) {
       if (state.imageDetections.length > 0) {
@@ -628,8 +1035,9 @@ async function runGalleryDetection() {
       }
     }
 
-    // Update Top KPIs and Telemetry Table
-    updateDashboardKPIs(state.imageSummary);
+    if (state.missionMode === "ORBITAL_SURVEILLANCE") {
+      updateDashboardKPIs(state.imageSummary);
+    }
     updateTelemetryTable();
   } catch (err) {
     console.error("Gallery inference failed:", err);
@@ -639,7 +1047,7 @@ async function runGalleryDetection() {
 }
 
 // ============================================================================
-// 9. Canvas HUD Bounding Box Overlay Renderer
+// 8. Canvas Overlay Renderers
 // ============================================================================
 function renderBoundingBoxes(ctx, detections) {
   if (!detections || detections.length === 0) return;
@@ -650,12 +1058,10 @@ function renderBoundingBoxes(ctx, detections) {
     const h = y2 - y1;
     const color = STATE_COLORS[det.operational_state] || "#38bdf8";
 
-    // Bounding Box
     ctx.strokeStyle = color;
     ctx.lineWidth = 2.5;
     ctx.strokeRect(x1, y1, w, h);
 
-    // Aerospace Reticle Brackets
     const corner = Math.min(18, Math.max(8, w * 0.15));
     ctx.lineWidth = 4;
     ctx.beginPath();
@@ -665,7 +1071,6 @@ function renderBoundingBoxes(ctx, detections) {
     ctx.moveTo(x2 - corner, y2); ctx.lineTo(x2, y2); ctx.lineTo(x2, y2 - corner);
     ctx.stroke();
 
-    // Telemetry Callout Pill
     const confPct = Math.round(det.confidence * 100);
     const label = `${det.display_name} | ${det.operational_state.toUpperCase()}`;
     const subLabel = `Conf: ${confPct}% | Risk: ${det.risk_score.toFixed(2)}`;
@@ -694,9 +1099,6 @@ function renderBoundingBoxes(ctx, detections) {
   });
 }
 
-// ============================================================================
-// 10. Dashboard KPIs & Radial Gauge
-// ============================================================================
 function updateDashboardKPIs(summary) {
   if (!summary) return;
 
@@ -741,9 +1143,6 @@ function updateRadialGauge(score) {
   }
 }
 
-// ============================================================================
-// 11. Real-Time Insights Banner (in Video Workspace)
-// ============================================================================
 function updateInsightsBanner(summary, targets) {
   const banner = document.getElementById("insightsBanner");
   if (!banner) return;
@@ -768,7 +1167,6 @@ function updateInsightsBanner(summary, targets) {
     return;
   }
 
-  // Find target with highest collision risk score
   const topTarget = targets.reduce((max, t) => (t.risk_score > (max?.risk_score || 0) ? t : max), targets[0]);
   const maxRisk = topTarget?.risk_score || summary?.max_risk || 0.0;
   const isHazardous = topTarget?.operational_state === "Hazardous" || maxRisk >= 0.60;
@@ -803,7 +1201,7 @@ function updateInsightsBanner(summary, targets) {
 }
 
 // ============================================================================
-// 12. Dedicated Telemetry Table & State Filtering
+// 9. Dedicated Telemetry Table & Exports
 // ============================================================================
 function initTelemetryFilters() {
   const group = document.getElementById("telemetryFilterGroup");
@@ -857,6 +1255,7 @@ function updateTelemetryTable() {
       ? `<code>${t.tumble_rate.toFixed(4)}</code>` 
       : `<span style="color:var(--text-muted);">Static (0.0)</span>`;
     const bboxDisplay = t.bbox ? `[${t.bbox.map((c) => Math.round(c)).join(", ")}]` : `N/A`;
+    const riskVal = t.risk_score !== undefined ? t.risk_score.toFixed(3) : "0.000";
 
     tr.innerHTML = `
       <td><strong>${trackIdDisplay}</strong></td>
@@ -866,7 +1265,7 @@ function updateTelemetryTable() {
       <td><span style="font-size:0.75rem; color:var(--text-muted); font-family:var(--font-mono);">${bboxDisplay}</span></td>
       <td>${(t.area_ratio * 100).toFixed(2)}%</td>
       <td>${tumbleDisplay}</td>
-      <td><strong style="color:${t.risk_score > 0.6 ? 'var(--state-hazardous)' : 'var(--text-main)'};">${t.risk_score.toFixed(3)}</strong></td>
+      <td><strong style="color:${t.risk_score > 0.6 ? 'var(--state-hazardous)' : 'var(--text-main)'};">${riskVal}</strong></td>
       <td>${stateBadge}</td>
     `;
     tableBody.appendChild(tr);
@@ -886,9 +1285,6 @@ function getStateBadgeHtml(state) {
   }
 }
 
-// ============================================================================
-// 13. Telemetry Data Exports (CSV & JSON)
-// ============================================================================
 function initExports() {
   const btnCsv = document.getElementById("btnExportCsv");
   if (btnCsv) btnCsv.addEventListener("click", exportCsv);
@@ -898,6 +1294,11 @@ function initExports() {
 }
 
 function exportCsv() {
+  if (state.missionMode === "GROUND_DEMONSTRATOR") {
+    window.location.href = "/api/kpi/export-csv";
+    return;
+  }
+
   const list = state.currentTelemetry || [];
   if (list.length === 0) {
     alert("No active detections to export.");
@@ -926,7 +1327,24 @@ function exportCsv() {
   document.body.removeChild(link);
 }
 
-function exportJson() {
+async function exportJson() {
+  if (state.missionMode === "GROUND_DEMONSTRATOR") {
+    try {
+      const res = await fetch("/api/kpi/export-json");
+      const trials = await res.json();
+      const jsonStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(trials, null, 2));
+      const link = document.createElement("a");
+      link.setAttribute("href", jsonStr);
+      link.setAttribute("download", `spaci_capture_trials_${Date.now()}.json`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    } catch (e) {
+      console.warn("Export JSON error:", e);
+    }
+  }
+
   const list = state.currentTelemetry || [];
   if (list.length === 0) {
     alert("No active detections to export.");
@@ -950,7 +1368,7 @@ function exportJson() {
 }
 
 // ============================================================================
-// 14. Spinners & Utilities
+// 10. Spinners & Benchmarks
 // ============================================================================
 function showVideoSpinner(msg = "PROCESSING ORBITAL TELEMETRY...") {
   const sp = document.getElementById("hudSpinner");
