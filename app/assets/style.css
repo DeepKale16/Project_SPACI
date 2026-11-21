@@ -1,0 +1,162 @@
+/* SPACI 2.0 Luxury Dark Glassmorphic Design System */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+html, body, [class*="css"], .stMarkdown {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+code, pre {
+    font-family: 'JetBrains Mono', monospace !important;
+}
+
+/* Background gradient styling */
+.stApp {
+    background: radial-gradient(circle at 10% 20%, #0d131f 0%, #060911 90%);
+}
+
+/* Hero Banner */
+.spaci-hero {
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 41, 59, 0.7) 50%, rgba(15, 23, 42, 0.9) 100%);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(56, 189, 248, 0.22);
+    border-radius: 18px;
+    padding: 1.8rem 2.2rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
+    position: relative;
+    overflow: hidden;
+}
+
+.spaci-hero h1 {
+    font-size: 2.3rem;
+    font-weight: 800;
+    margin: 0;
+    background: linear-gradient(90deg, #38bdf8, #818cf8, #c084fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.5px;
+}
+
+.spaci-hero p {
+    color: #94a3b8;
+    margin: 0.5rem 0 0 0;
+    font-size: 1.02rem;
+    max-width: 900px;
+    line-height: 1.5;
+}
+
+.spaci-badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 9999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.6rem;
+}
+
+.pill-orbital {
+    background: rgba(56, 189, 248, 0.12);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+/* Glass Cards */
+.spaci-glass-card {
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(56, 189, 248, 0.18);
+    border-radius: 14px;
+    padding: 1.2rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    margin-bottom: 1rem;
+}
+
+/* State Badge Elements */
+.badge-state {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 9999px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+.badge-hazardous {
+    background: rgba(239, 68, 68, 0.18);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.45);
+}
+
+.badge-reusable {
+    background: rgba(14, 165, 233, 0.18);
+    color: #38bdf8;
+    border: 1px solid rgba(14, 165, 233, 0.45);
+}
+
+.badge-active {
+    background: rgba(16, 185, 129, 0.18);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.45);
+}
+
+.badge-fragment {
+    background: rgba(245, 158, 11, 0.18);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.45);
+}
+
+/* Streamlit Native Metric overrides */
+div[data-testid="stMetric"] {
+    background: rgba(15, 23, 42, 0.7) !important;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(56, 189, 248, 0.18) !important;
+    border-radius: 14px !important;
+    padding: 1rem 1.2rem !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+    transition: all 0.2s ease-in-out;
+}
+
+div[data-testid="stMetric"]:hover {
+    border-color: rgba(56, 189, 248, 0.5) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(56, 189, 248, 0.15) !important;
+}
+
+div[data-testid="stMetricValue"] {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-weight: 700 !important;
+}
+
+/* Custom Table Styling */
+div[data-testid="stDataFrame"] {
+    border-radius: 12px;
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    overflow: hidden;
+}
+
+/* Tab Headers */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 8px;
+    background-color: rgba(15, 23, 42, 0.5);
+    padding: 6px;
+    border-radius: 12px;
+    border: 1px solid rgba(56, 189, 248, 0.15);
+}
+
+.stTabs [data-baseweb="tab"] {
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-weight: 600;
+    color: #94a3b8;
+}
+
+.stTabs [aria-selected="true"] {
+    background: rgba(56, 189, 248, 0.15) !important;
+    color: #38bdf8 !important;
+    border: 1px solid rgba(56, 189, 248, 0.3) !important;
+}

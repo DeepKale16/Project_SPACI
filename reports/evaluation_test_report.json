@@ -1,0 +1,92 @@
+{
+  "split": "test",
+  "weights": "models\\best.pt",
+  "augment": false,
+  "imgsz": 640,
+  "overall": {
+    "precision": 0.8741359763506384,
+    "recall": 0.8443670788508097,
+    "map50": 0.8938350903159236,
+    "map75": 0.4728860916431905,
+    "map50_95": 0.4813748905667086
+  },
+  "per_class": {
+    "cheops": {
+      "display_name": "CHEOPS (ESA Exoplanet)",
+      "precision": 1.0,
+      "recall": 0.9916200060198116,
+      "map50": 0.995,
+      "map50_95": 0.6543833333333333
+    },
+    "debris": {
+      "display_name": "Space Debris Fragment",
+      "precision": 0.9300345671826827,
+      "recall": 0.7272727272727273,
+      "map50": 0.8454117647058825,
+      "map50_95": 0.4633165387894288
+    },
+    "double_start": {
+      "display_name": "Double Start / Ambiguous",
+      "precision": 0.9643008527044654,
+      "recall": 1.0,
+      "map50": 0.995,
+      "map50_95": 0.6166369047619048
+    },
+    "earth_observation_sat_1": {
+      "display_name": "Earth Observation Sat-1",
+      "precision": 0.777290762219502,
+      "recall": 0.6363636363636364,
+      "map50": 0.6507849898580121,
+      "map50_95": 0.3699118906741811
+    },
+    "lisa_pathfinder": {
+      "display_name": "LISA Pathfinder (ESA)",
+      "precision": 0.9535575458454147,
+      "recall": 1.0,
+      "map50": 0.995,
+      "map50_95": 0.48335894660894657
+    },
+    "proba_2": {
+      "display_name": "PROBA-2 (ESA Sun Observer)",
+      "precision": 0.7557620097278008,
+      "recall": 0.8,
+      "map50": 0.8566666666666666,
+      "map50_95": 0.4231009948580371
+    },
+    "proba_3_csc": {
+      "display_name": "PROBA-3 Coronagraph (CSC)",
+      "precision": 0.951503039280339,
+      "recall": 1.0,
+      "map50": 0.995,
+      "map50_95": 0.6370394634605161
+    },
+    "proba_3_ocs": {
+      "display_name": "PROBA-3 Occulter (OCS)",
+      "precision": 0.9489589429101234,
+      "recall": 1.0,
+      "map50": 0.995,
+      "map50_95": 0.5922545980823736
+    },
+    "smart_1": {
+      "display_name": "SMART-1 (Lunar Demonstrator)",
+      "precision": 0.713701869711598,
+      "recall": 0.6363636363636364,
+      "map50": 0.6535447944668192,
+      "map50_95": 0.2391079101768568
+    },
+    "soho": {
+      "display_name": "SOHO (Solar Observatory)",
+      "precision": 0.8192167742263519,
+      "recall": 0.8243915544490202,
+      "map50": 0.935,
+      "map50_95": 0.4812912457912458
+    },
+    "xmm_newton": {
+      "display_name": "XMM-Newton (X-ray Telescope)",
+      "precision": 0.8011693760487437,
+      "recall": 0.6720263068900753,
+      "map50": 0.9157777777777778,
+      "map50_95": 0.33472196969696966
+    }
+  }
+}

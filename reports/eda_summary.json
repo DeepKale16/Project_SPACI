@@ -1,0 +1,69 @@
+{
+  "total_images": 2467,
+  "total_boxes": 2467,
+  "corrupt_images": 0,
+  "invalid_labels": 0,
+  "splits": {
+    "train": {
+      "images": 2105,
+      "boxes": 2105,
+      "empty_labels": 0,
+      "class_distribution": {
+        "cheops": 214,
+        "debris": 186,
+        "double_start": 196,
+        "earth_observation_sat_1": 178,
+        "lisa_pathfinder": 190,
+        "proba_2": 213,
+        "proba_3_csc": 191,
+        "proba_3_ocs": 168,
+        "smart_1": 188,
+        "soho": 183,
+        "xmm_newton": 198
+      }
+    },
+    "valid": {
+      "images": 239,
+      "boxes": 239,
+      "empty_labels": 0,
+      "class_distribution": {
+        "cheops": 19,
+        "debris": 21,
+        "double_start": 21,
+        "earth_observation_sat_1": 22,
+        "lisa_pathfinder": 21,
+        "proba_2": 20,
+        "proba_3_csc": 24,
+        "proba_3_ocs": 21,
+        "smart_1": 23,
+        "soho": 23,
+        "xmm_newton": 24
+      }
+    },
+    "test": {
+      "images": 123,
+      "boxes": 123,
+      "empty_labels": 0,
+      "class_distribution": {
+        "cheops": 11,
+        "debris": 11,
+        "double_start": 12,
+        "earth_observation_sat_1": 11,
+        "lisa_pathfinder": 12,
+        "proba_2": 10,
+        "proba_3_csc": 12,
+        "proba_3_ocs": 10,
+        "smart_1": 11,
+        "soho": 11,
+        "xmm_newton": 12
+      }
+    }
+  },
+  "bbox_metrics": {
+    "mean_area": 0.19063242268649294,
+    "std_area": 0.13052479332638553,
+    "median_area": 0.16296875,
+    "mean_aspect_ratio": 1.1270344748539376,
+    "median_aspect_ratio": 1.0364963503649636
+  }
+}
