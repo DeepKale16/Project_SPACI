@@ -1,0 +1,17 @@
+# Ultralytics BoT-SORT Low-Latency Configuration for SPACI 3.0
+# Optimized for real-time aerospace tracking (>= 25 FPS, < 35 ms) on RTX 3050
+
+tracker_type: botsort
+track_high_thresh: 0.25   # Min confidence to start a track
+track_low_thresh: 0.10    # Min confidence to maintain a track
+new_track_thresh: 0.30    # Threshold to create a new track
+track_buffer: 30          # Number of frames to keep lost tracks
+match_thresh: 0.80        # IoU distance threshold for matching
+fuse_score: True
+
+# Ultra-Low Latency Overrides:
+gmc_method: none          # Disable optical flow camera motion compensation (eliminates CPU bottlenecks)
+with_reid: False          # Disable deep appearance ReID feature extractor (preserves GPU/CPU compute budget)
+proximity_thresh: 0.5
+appearance_thresh: 0.25
+model: auto

@@ -1,0 +1,20 @@
+{
+  "device": "NVIDIA GeForce RTX 3050 6GB Laptop GPU",
+  "weights": "E:\\Project_SPACI\\models\\best.pt",
+  "pytorch_fp32": {
+    "mean_latency_ms": 11.22,
+    "std_latency_ms": 0.34,
+    "p95_latency_ms": 11.81,
+    "fps": 89.1,
+    "peak_vram_mb": 110.4
+  },
+  "pytorch_fp16": {
+    "mean_latency_ms": 9.46,
+    "std_latency_ms": 1.68,
+    "p95_latency_ms": 12.98,
+    "fps": 105.7,
+    "peak_vram_mb": 112.2,
+    "speedup_vs_fp32_pct": 15.7
+  },
+  "onnx_exported": false
+}

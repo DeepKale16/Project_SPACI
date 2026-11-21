@@ -13,9 +13,7 @@ env/
 # Datasets (Large files & images)
 Dataset/
 Dataset_*/
-data/*.mp4
-data/*.db
-data/*.sqlite*
+data/
 *.db
 *.sqlite*
 

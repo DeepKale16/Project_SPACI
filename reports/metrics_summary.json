@@ -1,0 +1,93 @@
+{
+  "model": "best.pt",
+  "split": "test",
+  "num_images": 123,
+  "conf_threshold": 0.25,
+  "iou_threshold": 0.45,
+  "overall": {
+    "precision": 0.8739,
+    "recall": 0.8758,
+    "map50": 0.8428,
+    "map75": 0.4364,
+    "map50_95": 0.4506
+  },
+  "per_class": {
+    "cheops": {
+      "display_name": "CHEOPS (ESA Exoplanet)",
+      "precision": 1.0,
+      "recall": 1.0,
+      "map50": 0.995,
+      "map50_95": 0.6544
+    },
+    "debris": {
+      "display_name": "Space Debris Fragment",
+      "precision": 1.0,
+      "recall": 0.7273,
+      "map50": 0.725,
+      "map50_95": 0.4037
+    },
+    "double_start": {
+      "display_name": "Double Start / Ambiguous",
+      "precision": 1.0,
+      "recall": 1.0,
+      "map50": 0.995,
+      "map50_95": 0.6052
+    },
+    "earth_observation_sat_1": {
+      "display_name": "Earth Observation Sat-1",
+      "precision": 0.7778,
+      "recall": 0.6364,
+      "map50": 0.521,
+      "map50_95": 0.2738
+    },
+    "lisa_pathfinder": {
+      "display_name": "LISA Pathfinder (ESA)",
+      "precision": 1.0,
+      "recall": 1.0,
+      "map50": 0.995,
+      "map50_95": 0.4834
+    },
+    "proba_2": {
+      "display_name": "PROBA-2 (ESA Sun Observer)",
+      "precision": 0.6691,
+      "recall": 0.8,
+      "map50": 0.7839,
+      "map50_95": 0.3923
+    },
+    "proba_3_csc": {
+      "display_name": "PROBA-3 Coronagraph (CSC)",
+      "precision": 1.0,
+      "recall": 1.0,
+      "map50": 0.995,
+      "map50_95": 0.601
+    },
+    "proba_3_ocs": {
+      "display_name": "PROBA-3 Occulter (OCS)",
+      "precision": 0.9091,
+      "recall": 1.0,
+      "map50": 0.995,
+      "map50_95": 0.5703
+    },
+    "smart_1": {
+      "display_name": "SMART-1 (Lunar Demonstrator)",
+      "precision": 0.5785,
+      "recall": 0.7273,
+      "map50": 0.581,
+      "map50_95": 0.2206
+    },
+    "soho": {
+      "display_name": "SOHO (Solar Observatory)",
+      "precision": 0.9091,
+      "recall": 0.9091,
+      "map50": 0.8968,
+      "map50_95": 0.4519
+    },
+    "xmm_newton": {
+      "display_name": "XMM-Newton (X-ray Telescope)",
+      "precision": 0.7692,
+      "recall": 0.8333,
+      "map50": 0.7878,
+      "map50_95": 0.3003
+    }
+  }
+}

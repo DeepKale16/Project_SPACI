@@ -1,0 +1,16 @@
+{
+  "num_trials": 140,
+  "overall_capture_rate_pct": 55.0,
+  "nominal_corridor_capture_rate_pct": 71.43,
+  "abort_distribution": {
+    "ABORT_OUT_OF_ENVELOPE": 41,
+    "ABORT_UNSAFE": 20,
+    "ABORT_UNREACHABLE": 2
+  },
+  "mean_miss_error_cm": 4.85,
+  "parameters": {
+    "v_net_mps": 9.0,
+    "t_lat_s": 0.08,
+    "d_net_m": 1.2
+  }
+}

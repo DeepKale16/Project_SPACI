@@ -1,0 +1,12 @@
+Class Key,Display Name,Precision,Recall,mAP@50,mAP@50-95
+cheops,CHEOPS (ESA Exoplanet),100.0%,100.0%,99.5%,65.4%
+debris,Space Debris Fragment,100.0%,72.7%,72.5%,40.4%
+double_start,Double Start / Ambiguous,100.0%,100.0%,99.5%,60.5%
+earth_observation_sat_1,Earth Observation Sat-1,77.8%,63.6%,52.1%,27.4%
+lisa_pathfinder,LISA Pathfinder (ESA),100.0%,100.0%,99.5%,48.3%
+proba_2,PROBA-2 (ESA Sun Observer),66.9%,80.0%,78.4%,39.2%
+proba_3_csc,PROBA-3 Coronagraph (CSC),100.0%,100.0%,99.5%,60.1%
+proba_3_ocs,PROBA-3 Occulter (OCS),90.9%,100.0%,99.5%,57.0%
+smart_1,SMART-1 (Lunar Demonstrator),57.9%,72.7%,58.1%,22.1%
+soho,SOHO (Solar Observatory),90.9%,90.9%,89.7%,45.2%
+xmm_newton,XMM-Newton (X-ray Telescope),76.9%,83.3%,78.8%,30.0%
