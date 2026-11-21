@@ -73,29 +73,57 @@
     </div>
 
     <!-- Navigation Tabs -->
-    <nav class="tabs-nav" aria-label="Dashboard Navigation">
-      <button class="tab-btn active" data-tab="tabLive" id="tabBtnLive">
-        📡 Real-Time Live Stream & 3D GNC
+    <nav class="tabs-nav" role="tablist" aria-label="SPACI Mission Control Navigation">
+      <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="tabLive" data-tab="tabLive" id="tabBtnLive">
+        <span class="tab-indicator-dot"></span>
+        <span class="tab-icon">📡</span>
+        <span class="tab-text">Real-Time Live & GNC</span>
       </button>
-      <button class="tab-btn" data-tab="tabVideo" id="tabBtnVideo">
-        🎬 Orbital Video Tracking
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tabVideo" data-tab="tabVideo" id="tabBtnVideo">
+        <span class="tab-indicator-dot"></span>
+        <span class="tab-icon">🎬</span>
+        <span class="tab-text">Orbital Video Tracking</span>
       </button>
-      <button class="tab-btn" data-tab="tabGallery" id="tabBtnGallery">
-        🚀 Space Object Gallery
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tabGallery" data-tab="tabGallery" id="tabBtnGallery">
+        <span class="tab-indicator-dot"></span>
+        <span class="tab-icon">🚀</span>
+        <span class="tab-text">Space Object Gallery</span>
       </button>
-      <button class="tab-btn" data-tab="tabTelemetry" id="tabBtnTelemetry">
-        📋 Flight & Capture Telemetry Table
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tabTelemetry" data-tab="tabTelemetry" id="tabBtnTelemetry">
+        <span class="tab-indicator-dot"></span>
+        <span class="tab-icon">📋</span>
+        <span class="tab-text">Telemetry Table</span>
       </button>
-      <button class="tab-btn" data-tab="tabBenchmarks" id="tabBtnBenchmarks">
-        📊 Model Benchmarks
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tabBenchmarks" data-tab="tabBenchmarks" id="tabBtnBenchmarks">
+        <span class="tab-indicator-dot"></span>
+        <span class="tab-icon">📊</span>
+        <span class="tab-text">Model Benchmarks</span>
       </button>
-      <button class="tab-btn" data-tab="tabStandards" id="tabBtnStandards">
-        ⚖️ Aerospace Standards & GNC Physics
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tabStandards" data-tab="tabStandards" id="tabBtnStandards">
+        <span class="tab-indicator-dot"></span>
+        <span class="tab-icon">⚖️</span>
+        <span class="tab-text">Aerospace Standards</span>
       </button>
-      <button class="tab-btn" data-tab="tabTaxonomy" id="tabBtnTaxonomy">
-        🛰️ Space Object Taxonomy
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tabTaxonomy" data-tab="tabTaxonomy" id="tabBtnTaxonomy">
+        <span class="tab-indicator-dot"></span>
+        <span class="tab-icon">🛰️</span>
+        <span class="tab-text">Object Taxonomy</span>
       </button>
     </nav>
+
+    <!-- Active Workspace Breadcrumb Banner -->
+    <div class="active-workspace-bar" id="activeWorkspaceBar">
+      <div class="workspace-breadcrumb">
+        <span class="breadcrumb-label">ACTIVE WORKSPACE:</span>
+        <span class="breadcrumb-title" id="currentWorkspaceTitle">📡 Real-Time Live Stream & 3D GNC</span>
+        <span class="breadcrumb-sep">//</span>
+        <span class="breadcrumb-desc" id="currentWorkspaceDesc">Continuous 3D Kalman trajectory estimation, ray-cast LiDAR fusion, and closed-loop net capture</span>
+      </div>
+      <div class="workspace-status-badge">
+        <span class="status-dot-live"></span>
+        <span id="currentWorkspaceStatus">ONLINE // FRAME-LOCKED</span>
+      </div>
+    </div>
 
     <!-- Top KPI Mission Status Bar (Always Visible Across Workspaces) -->
     <section class="kpi-grid" style="margin-bottom: 1.5rem;">
