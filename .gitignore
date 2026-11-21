@@ -1,0 +1,54 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Datasets (Large files & images)
+Dataset/
+Dataset_*/
+data/*.mp4
+data/*.db
+data/*.sqlite*
+*.db
+*.sqlite*
+
+# Model Weights (Large binary checkpoints)
+*.pt
+*.pth
+*.onnx
+*.engine
+*.tflite
+models/*.pt
+models/*.onnx
+weights/*.pt
+weights/*.onnx
+
+# Training runs & checkpoint logs
+runs/
+
+# Video outputs
+reports/video_output/*.mp4
+reports/video_output/*.avi
+reports/video_output/*.webm
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Temporary / OS
+.DS_Store
+Thumbs.db
