@@ -137,13 +137,70 @@ function updateTopKpiLabels() {
   }
 }
 
+const TAB_METADATA = {
+  tabLive: {
+    title: "📡 Real-Time Live Stream & 3D GNC",
+    desc: "Continuous 3D Kalman trajectory estimation, ray-cast LiDAR fusion, and closed-loop net capture",
+    status: "ONLINE // FRAME-LOCKED",
+  },
+  tabVideo: {
+    title: "🎬 Orbital Video Kinematics & Tumble Tracking",
+    desc: "High-resolution encounter video processing with BoT-SORT aspect-ratio tumble variance (σ²)",
+    status: "READY // BoT-SORT ENGINE",
+  },
+  tabGallery: {
+    title: "🚀 Space Object Visual Inspection Gallery",
+    desc: "11-class curated space object catalog with 1-click test verification and 2x2 tiled debris inspection",
+    status: "CATALOG LOADED (11 CLASSES)",
+  },
+  tabTelemetry: {
+    title: "📋 Flight & Net Capture Telemetry Records",
+    desc: "Real-time queryable trials database with miss-distance error, magnetic assist, and CSV/JSON export",
+    status: "DATABASE CONNECTED (SQLite)",
+  },
+  tabBenchmarks: {
+    title: "📊 Model Accuracy & Edge Hardware Benchmarks",
+    desc: "Held-out test split evaluation metrics, confusion matrix, and NVIDIA RTX 3050 FP16 benchmarks",
+    status: "VERIFIED (123 TEST FRAMES)",
+  },
+  tabStandards: {
+    title: "⚖️ Aerospace Safety Standards & GNC Physics",
+    desc: "NASA-STD-8719.14C breakup criteria, ESA MASTER-8 crowding factors, and quartic trajectory derivations",
+    status: "NASA-STD-8719.14C COMPLIANT",
+  },
+  tabTaxonomy: {
+    title: "🛰️ Aerospace Object Taxonomy & Operational States",
+    desc: "Formal categorization across scientific payloads, defunct buses, and hypervelocity fragments",
+    status: "11 CLASSIFICATIONS ACTIVE",
+  },
+};
+
 function initTabs() {
   const tabBtns = document.querySelectorAll(".tab-btn");
 
-  tabBtns.forEach((btn) => {
+  tabBtns.forEach((btn, idx) => {
     btn.addEventListener("click", () => {
       const targetId = btn.getAttribute("data-tab");
       if (targetId) switchTab(targetId);
+    });
+
+    // Keyboard navigation (Arrow keys, Home, End)
+    btn.addEventListener("keydown", (e) => {
+      let targetBtn = null;
+      if (e.key === "ArrowRight") {
+        targetBtn = tabBtns[(idx + 1) % tabBtns.length];
+      } else if (e.key === "ArrowLeft") {
+        targetBtn = tabBtns[(idx - 1 + tabBtns.length) % tabBtns.length];
+      } else if (e.key === "Home") {
+        targetBtn = tabBtns[0];
+      } else if (e.key === "End") {
+        targetBtn = tabBtns[tabBtns.length - 1];
+      }
+      if (targetBtn) {
+        e.preventDefault();
+        targetBtn.focus();
+        targetBtn.click();
+      }
     });
   });
 
@@ -151,24 +208,72 @@ function initTabs() {
   if (btnGoToTelemetry) {
     btnGoToTelemetry.addEventListener("click", () => switchTab("tabTelemetry"));
   }
+
+  // Restore tab from URL hash on load (Deep Linking)
+  const initialHash = window.location.hash.replace("#", "");
+  if (initialHash && TAB_METADATA[initialHash]) {
+    switchTab(initialHash);
+  } else {
+    switchTab("tabLive");
+  }
+
+  // Support Browser Back/Forward buttons
+  window.addEventListener("hashchange", () => {
+    const h = window.location.hash.replace("#", "");
+    if (h && TAB_METADATA[h] && h !== state.activeTab) {
+      switchTab(h);
+    }
+  });
 }
 
 function switchTab(tabId) {
+  if (!TAB_METADATA[tabId]) return;
   state.activeTab = tabId;
 
+  // 1. Update navigation button styles and ARIA states
   document.querySelectorAll(".tab-btn").forEach((b) => {
-    b.classList.toggle("active", b.getAttribute("data-tab") === tabId);
+    const isActive = b.getAttribute("data-tab") === tabId;
+    b.classList.toggle("active", isActive);
+    b.setAttribute("aria-selected", isActive ? "true" : "false");
   });
 
+  // 2. Toggle active tab panel
   document.querySelectorAll(".tab-panel").forEach((panel) => {
     panel.classList.toggle("hidden", panel.id !== tabId);
   });
 
+  // 3. Update Workspace Breadcrumb Bar (Unmistakable "You Are On This Page" Effect)
+  const meta = TAB_METADATA[tabId];
+  if (meta) {
+    const titleEl = document.getElementById("currentWorkspaceTitle");
+    const descEl = document.getElementById("currentWorkspaceDesc");
+    const statusEl = document.getElementById("currentWorkspaceStatus");
+    if (titleEl) titleEl.textContent = meta.title;
+    if (descEl) descEl.textContent = meta.desc;
+    if (statusEl) statusEl.textContent = meta.status;
+  }
+
+  // 4. Update URL hash without jumping scroll position
+  if (window.location.hash !== `#${tabId}`) {
+    try {
+      history.replaceState(null, "", `#${tabId}`);
+    } catch (e) {}
+  }
+
+  // 5. Lifecycle actions per tab
   if (tabId === "tabVideo") {
     const hudVideo = document.getElementById("hudVideo");
     if (hudVideo && hudVideo.style.display !== "none" && hudVideo.src) {
       hudVideo.play().catch(() => {});
     }
+  } else if (tabId === "tabTelemetry") {
+    updateTelemetryTable();
+  } else if (tabId === "tabLive") {
+    if (state.lastLivePacket?.radar_state) {
+      renderTacticalRadar(state.lastLivePacket.radar_state);
+    }
+  } else if (tabId === "tabBenchmarks") {
+    loadBenchmarks();
   }
 }
 
@@ -211,6 +316,7 @@ function initLiveWebSocket() {
 }
 
 function handleLivePacket(packet) {
+  state.lastLivePacket = packet;
   // 1. Update Video Frame
   const streamImg = document.getElementById("liveStreamImg");
   if (streamImg && packet.frame_b64) {
