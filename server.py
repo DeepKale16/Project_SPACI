@@ -256,21 +256,24 @@ def export_kpi_json():
 async def websocket_live_endpoint(websocket: WebSocket):
     """
     Frame-locked, drop-oldest atomic live telemetry and video stream.
-    Sustains >= 25 FPS with bounded memory.
+    Sustains >= 25 FPS with bounded memory without blocking asyncio event loop.
     """
     await websocket.accept()
+    stream_manager.active_connections += 1
     try:
         while True:
             try:
-                # Retrieve latest packet from drop-oldest single-frame queue
-                packet = stream_manager.frame_queue.get(timeout=0.1)
+                # Retrieve latest packet non-blockingly to keep event loop 100% responsive
+                packet = stream_manager.frame_queue.get_nowait()
                 await websocket.send_text(json.dumps(packet))
             except queue.Empty:
-                await asyncio.sleep(0.005)
+                await asyncio.sleep(0.01)
     except WebSocketDisconnect:
         pass
     except Exception as e:
         pass
+    finally:
+        stream_manager.active_connections = max(0, stream_manager.active_connections - 1)
 
 
 # -----------------------------------------------------------------------------

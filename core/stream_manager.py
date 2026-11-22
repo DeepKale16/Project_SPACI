@@ -21,6 +21,7 @@ from typing import Dict, List, Optional, Tuple, Any
 
 import cv2
 import numpy as np
+import torch
 from ultralytics import YOLO
 
 from configs import *
@@ -57,9 +58,15 @@ class LiveStreamManager:
         self.botsort_cfg_path = Path(botsort_cfg_path) if botsort_cfg_path else Path("configs/spaci_botsort.yaml")
         self.kpi_logger = kpi_logger or CaptureKpiLogger()
 
+        # Device selection & FP16 acceleration
+        self.device = 0 if torch.cuda.is_available() else "cpu"
+        self.half = bool(torch.cuda.is_available())
+
         # Dedicated YOLO instance for live tracking (separate from static /api/detect)
         with self.gpu_lock:
             self.model = YOLO(str(self.weights_path))
+            if self.device != "cpu":
+                self.model.to(self.device)
 
         # Core Engines
         self.fusion = SensorFusionEngine()
@@ -99,6 +106,7 @@ class LiveStreamManager:
         # Concurrency & Queues
         self.frame_queue: queue.Queue = queue.Queue(maxsize=1)
         self.running = False
+        self.active_connections = 0
         self.worker_thread: Optional[threading.Thread] = None
         self.frame_counter = 0
 
@@ -188,6 +196,11 @@ class LiveStreamManager:
         fps_smoothing = 30.0
 
         while self.running:
+            # Low-power standby: pause GPU inference when no clients are viewing live feed
+            if self.active_connections <= 0:
+                time.sleep(0.04)
+                continue
+
             t_start = time.time()
             now = t_start
             raw_frame = None
@@ -242,7 +255,8 @@ class LiveStreamManager:
                     conf=0.25,
                     iou=0.45,
                     tracker=tracker_arg,
-                    device=0,
+                    device=self.device,
+                    half=self.half,
                     verbose=False,
                 )
 
@@ -352,7 +366,7 @@ class LiveStreamManager:
 
             # 6. Render Overlays & Radar State
             annotated_frame = self._render_live_overlays(raw_frame, tracks_payload, gnc_verdict)
-            _, enc = cv2.imencode(".jpg", annotated_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+            _, enc = cv2.imencode(".jpg", annotated_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
             frame_b64 = "data:image/jpeg;base64," + base64.b64encode(enc).decode("utf-8")
 
             radar_state = self._build_radar_state(tracks_payload, gnc_verdict)

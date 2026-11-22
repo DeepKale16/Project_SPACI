@@ -69,6 +69,11 @@ function debounce(fn, delay = 220) {
 // Lifecycle Initialization
 // ============================================================================
 document.addEventListener("DOMContentLoaded", () => {
+  if (window.history && window.history.scrollRestoration) {
+    window.history.scrollRestoration = "manual";
+  }
+  window.scrollTo(0, 0);
+
   initTabs();
   initModeSwitcher();
   initLiveWebSocket();
@@ -82,6 +87,12 @@ document.addEventListener("DOMContentLoaded", () => {
   initGallery();
   loadBenchmarks();
   updateKpiSummary();
+  updateTopKpiLabels();
+  setInterval(updateKpiSummary, 5000);
+
+  // Enforce zero scroll offset on startup
+  requestAnimationFrame(() => window.scrollTo(0, 0));
+  setTimeout(() => window.scrollTo(0, 0), 100);
 });
 
 // ============================================================================
@@ -108,6 +119,13 @@ function initModeSwitcher() {
 
     // Adapt top KPI labels based on mode
     updateTopKpiLabels();
+    if (mode === "GROUND_DEMONSTRATOR") {
+      updateKpiSummary();
+    } else {
+      if (state.currentSummary) {
+        updateDashboardKPIs(state.currentSummary);
+      }
+    }
   };
 
   if (btnOrbital) btnOrbital.addEventListener("click", () => setMode("ORBITAL_SURVEILLANCE"));
@@ -122,18 +140,34 @@ function updateTopKpiLabels() {
   const c4 = document.querySelector("#kpiCardActive .kpi-label");
   const c5 = document.querySelector("#kpiCardRisk .kpi-label");
 
+  const s1 = document.querySelector("#kpiCardTotal .kpi-sub");
+  const s2 = document.querySelector("#kpiCardHazardous .kpi-sub");
+  const s3 = document.querySelector("#kpiCardReusable .kpi-sub");
+  const s4 = document.querySelector("#kpiCardActive .kpi-sub");
+  const s5 = document.querySelector("#kpiCardRisk .kpi-sub");
+
   if (isGround) {
     if (c1) c1.textContent = "Tracked Targets";
+    if (s1) s1.textContent = "Continuous Radar Track";
     if (c2) c2.textContent = "GNC Gate Status";
+    if (s2) s2.textContent = "6-Condition Safety Interlock";
     if (c3) c3.textContent = "Deployment Distance";
+    if (s3) s3.textContent = "Quartic Ballistic Solution";
     if (c4) c4.textContent = "Capture Success Rate";
+    if (s4) s4.textContent = "SQLite Trials Validation";
     if (c5) c5.textContent = "3D Miss Error";
+    if (s5) s5.textContent = "Fused Sensor Residual";
   } else {
     if (c1) c1.textContent = "Field of View Targets";
+    if (s1) s1.textContent = "Total Objects in Sight";
     if (c2) c2.textContent = "Hazardous Threat";
+    if (s2) s2.textContent = "CAM Trigger (Risk > 0.60)";
     if (c3) c3.textContent = "Reusable / Salvage";
+    if (s3) s3.textContent = "Serviceable Spacecraft Bus";
     if (c4) c4.textContent = "Useful / Active";
+    if (s4) s4.textContent = "Operational Satellite Asset";
     if (c5) c5.textContent = "Mean Risk Index";
+    if (s5) s5.textContent = "0.0 (Safe) → 1.0 (Critical)";
   }
 }
 
@@ -256,7 +290,7 @@ function switchTab(tabId) {
   // 4. Update URL hash without jumping scroll position
   if (window.location.hash !== `#${tabId}`) {
     try {
-      history.replaceState(null, "", `#${tabId}`);
+      history.replaceState(null, "", window.location.pathname + `#${tabId}`);
     } catch (e) {}
   }
 
@@ -265,6 +299,10 @@ function switchTab(tabId) {
     const hudVideo = document.getElementById("hudVideo");
     if (hudVideo && hudVideo.style.display !== "none" && hudVideo.src) {
       hudVideo.play().catch(() => {});
+    }
+  } else if (tabId === "tabGallery") {
+    if (!state.activeImageData && state.activeSample) {
+      loadSample(state.activeSample, false);
     }
   } else if (tabId === "tabTelemetry") {
     updateTelemetryTable();
@@ -680,13 +718,20 @@ async function updateKpiSummary() {
   try {
     const res = await fetch("/api/kpi/summary");
     const data = await res.json();
+    state.lastKpiSummary = data;
 
     const k4 = document.getElementById("kpiActive");
     const k5 = document.getElementById("kpiRisk");
 
     if (state.missionMode === "GROUND_DEMONSTRATOR") {
-      if (k4) k4.textContent = `${data.capture_success_rate_pct}%`;
-      if (k5) k5.textContent = `${data.mean_miss_error_cm} cm`;
+      if (k4) {
+        k4.textContent = `${data.capture_success_rate_pct}%`;
+        k4.style.color = "var(--state-active)";
+      }
+      if (k5) {
+        k5.textContent = `${data.mean_miss_error_cm} cm`;
+        k5.style.color = "var(--accent-cyan)";
+      }
     }
   } catch (e) {
     console.warn("KPI fetch notice:", e);
@@ -988,7 +1033,14 @@ async function initGallery() {
 
     if (samples.length > 0) {
       container.children[0]?.classList.add("active");
-      loadSample(samples[0], false);
+      state.activeSample = samples[0];
+      const statusEl = document.getElementById("galleryStatus");
+      if (statusEl) statusEl.textContent = `Source: Sample Catalog (${samples[0].label})`;
+      const infoEl = document.getElementById("galleryTargetInfo");
+      if (infoEl) infoEl.textContent = samples[0].label;
+      if (state.activeTab === "tabGallery") {
+        loadSample(samples[0], false);
+      }
     }
   } catch (err) {
     console.error("Failed to load sample gallery catalog:", err);
