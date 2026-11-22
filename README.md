@@ -98,7 +98,16 @@ Project_SPACI/
 │   ├── run_monte_carlo_eval.py         # 140-trial parameter sweep & envelope heatmap generator
 │   ├── benchmark_edge.py               # Edge latency & VRAM benchmark (FP32 vs FP16 vs ONNX)
 │   └── generate_verified_report_assets.py # Single-source-of-truth metrics & confusion matrix
-├── reports/
+├── reports/                            # Central Unified Folder for ALL Reports & Documents
+│   ├── SPACI_3_ENGINEERING_REPORT.md   # Comprehensive 30+ page system & mathematical specification
+│   ├── SPACI_3_ARCHITECTURE.md         # GNC, 3D Kalman, quartic ballistic solver architecture
+│   ├── API_DOCUMENTATION.md            # Complete REST & WebSocket API specification
+│   ├── RESEARCH_FOUNDATION.md          # NASA-STD-8719.14C and ESA MASTER-8 standards
+│   ├── PRESENTATION_DEMO_GUIDE.txt     # Step-by-step presentation & live demo guide
+│   ├── SPACI_Staff_Demonstration_Guide.pdf # Sponsor & staff demonstration manual
+│   ├── SPACI_Progress_Report_1.docx    # Phase 1 Progress Report
+│   ├── SPACI_Progress_Report_2.docx    # Phase 2 Progress Report
+│   ├── SPACI_Progress_Report_2_Revised.docx # Phase 2 Revised Comprehensive Progress Report
 │   ├── capture_envelope_heatmap.png    # Monte Carlo capture operating envelope heatmap
 │   ├── composite_sanity_grid.jpg       # 4x4 visual validation of composited multi-object cutouts
 │   ├── confusion_matrix_verified.png   # Watermarked confusion matrix evaluated on test split
@@ -110,6 +119,8 @@ Project_SPACI/
 │   ├── css/style.css                   # Dual-mode and radar layout styles
 │   └── js/app.js                       # Frame-locked WebSocket client & Canvas 2D radar engine
 ├── server.py                           # FastAPI application & REST/WebSocket routes
+├── app.py                              # Entrypoint launcher
+├── requirements.txt                    # Project dependencies
 └── tests/                              # Complete 33-test automated test suite
     ├── test_dataset.py
     ├── test_detector.py
@@ -121,6 +132,24 @@ Project_SPACI/
     ├── test_taxonomy.py
     └── test_testbench.py
 ```
+
+---
+
+## 📑 Project Documentation & Reports Index
+
+All formal documentation, research specifications, and progress reports are consolidated in the [`reports/`](reports/) directory:
+
+| Document / Report | Format | Description |
+|---|---|---|
+| [**SPACI 3.0 Engineering Report**](reports/SPACI_3_ENGINEERING_REPORT.md) | Markdown | 30+ page comprehensive engineering & mathematical specification |
+| [**SPACI 3.0 Architecture Guide**](reports/SPACI_3_ARCHITECTURE.md) | Markdown | 3D Kalman filter, quartic ballistic solver & safety gate derivations |
+| [**REST & WebSocket API Guide**](reports/API_DOCUMENTATION.md) | Markdown | Endpoints, payloads, schemas, and atomic WebSocket protocol |
+| [**Research Foundation**](reports/RESEARCH_FOUNDATION.md) | Markdown | NASA-STD-8719.14C breakup energy (40 J/g) & ESA MASTER-8 crowding factors |
+| [**Staff Demonstration Manual**](reports/SPACI_Staff_Demonstration_Guide.pdf) | PDF | Official presentation guide for project evaluators and sponsors |
+| [**Presentation & Demo Guide**](reports/PRESENTATION_DEMO_GUIDE.txt) | Text | Step-by-step presentation script and live software walkthrough |
+| [**Progress Report 1**](reports/SPACI_Progress_Report_1.docx) | Word (.docx) | Initial architecture, dataset EDA, and baseline YOLOv11 transfer learning |
+| [**Progress Report 2**](reports/SPACI_Progress_Report_2.docx) | Word (.docx) | Multi-class operational states, evaluation metrics, and initial HUD |
+| [**Progress Report 2 (Revised)**](reports/SPACI_Progress_Report_2_Revised.docx) | Word (.docx) | Revised progress report with full metrics, confusion matrix & HUD layout |
 
 ---
 

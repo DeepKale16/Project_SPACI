@@ -17,8 +17,8 @@ from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import nsdecls, qn
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-OUTPUT_DOCX = PROJECT_ROOT / "SPACI_Progress_Report_2.docx"
-OUTPUT_DOCX_REVISED = PROJECT_ROOT / "SPACI_Progress_Report_2_Revised.docx"
+OUTPUT_DOCX = PROJECT_ROOT / "reports" / "SPACI_Progress_Report_2.docx"
+OUTPUT_DOCX_REVISED = PROJECT_ROOT / "reports" / "SPACI_Progress_Report_2_Revised.docx"
 
 # Palette matching Report 1
 COLOR_NAVY = RGBColor(0x1F, 0x38, 0x64)      # Primary Headers (#1F3864)
