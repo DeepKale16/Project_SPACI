@@ -133,6 +133,15 @@ async def serve_index():
     return FileResponse(str(index_file))
 
 
+@app.get("/landing")
+async def serve_landing():
+    """Serves the scroll-driven 3D landing page."""
+    landing_file = WEB_DIR / "landing.html"
+    if not landing_file.exists():
+        raise HTTPException(status_code=404, detail="Landing page not found")
+    return FileResponse(str(landing_file))
+
+
 @app.get("/api/samples")
 @app.get("/api/catalog")
 async def get_samples():
