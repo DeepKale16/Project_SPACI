@@ -7,6 +7,7 @@ from playwright.sync_api import sync_playwright
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 LANDING_HTML_PATH = PROJECT_ROOT / "web" / "landing.html"
 FILE_URL = f"file:///{LANDING_HTML_PATH.as_posix()}"
+HTTP_URL = "http://localhost:8080/landing"
 
 def run_landing_test():
     console_logs = []
@@ -28,21 +29,23 @@ def run_landing_test():
         page.on("console", lambda msg: console_logs.append(f"[{msg.type}] {msg.text}"))
         page.on("pageerror", lambda err: page_errors.append(str(err)))
 
-        # Navigate
-        page.goto(FILE_URL, wait_until="load", timeout=15000)
-        page.wait_for_timeout(2000)
+        # Navigate via HTTP
+        target_url = HTTP_URL
+        print(f"Navigating to: {target_url}")
+        page.goto(target_url, wait_until="load", timeout=15000)
+        page.wait_for_timeout(2500)
 
         # 1. Check title and hero text
         title = page.title()
         print(f"[OK] Page title: '{title}'")
         assert "SPACI" in title, f"Title does not contain SPACI: {title}"
 
-        hero_heading = page.locator("#section-0 h1").inner_text()
-        print(f"[OK] Hero heading: '{hero_heading}'")
-        assert "Catch what's left behind" in hero_heading, f"Unexpected hero heading: {hero_heading}"
+        hero_heading = page.locator("#s0 h1").inner_text()
+        print(f"[OK] Hero heading: '{hero_heading.replace(chr(10), ' ')}'")
+        assert "Catch what's" in hero_heading, f"Unexpected hero heading: {hero_heading}"
 
         # 2. Check WebGL Canvas
-        canvas = page.locator("#webgl-canvas")
+        canvas = page.locator("#gl")
         assert canvas.is_visible(), "WebGL canvas is not visible!"
         print("[OK] WebGL canvas is visible and active.")
 
@@ -50,51 +53,47 @@ def run_landing_test():
         page.screenshot(path="reports/landing_hero.png")
         print("[OK] Saved reports/landing_hero.png")
 
-        # 3. Test Scroll through all sections (0 to 7)
+        # 3. Test Scroll through all sections (s0 to s5)
         section_ids = [
-            ("section-0", "Hero", "reports/landing_hero.png"),
-            ("section-1", "Problem", "reports/landing_problem.png"),
-            ("section-2", "Detect", "reports/landing_detect.png"),
-            ("section-3", "AimCapture", "reports/landing_capture.png"),
-            ("section-4", "Retrieve", "reports/landing_retrieve.png"),
-            ("section-5", "Specifications", "reports/landing_specs.png"),
-            ("section-6", "GroundTest", "reports/landing_comparison.png"),
-            ("section-7", "SubsystemsCTA", "reports/landing_cta.png"),
+            ("s0", "Hero", "reports/landing_hero.png"),
+            ("s1", "Problem", "reports/landing_problem.png"),
+            ("s2", "Detect", "reports/landing_detect.png"),
+            ("s3", "AimCapture", "reports/landing_capture.png"),
+            ("s4", "Retrieve", "reports/landing_retrieve.png"),
+            ("s5", "Specifications", "reports/landing_specs.png"),
         ]
 
         for sec_id, name, shot_path in section_ids:
             sec_el = page.locator(f"#{sec_id}")
             sec_el.scroll_into_view_if_needed()
-            page.wait_for_timeout(900)  # Allow smooth camera damping and canvas rendering
+            page.wait_for_timeout(1000)  # Allow smooth camera damping and canvas rendering
 
-            hud_stage = page.locator("#hud-stage-name").inner_text()
-            hud_lock = page.locator("#hud-lock-status").inner_text()
-            print(f" -> {name} ({sec_id}) | HUD Stage: '{hud_stage}' | Target GNC: '{hud_lock}'")
+            hud_sys = page.locator("#hSys").inner_text()
+            hud_obj = page.locator("#hObj").inner_text()
+            print(f" -> {name} (#{sec_id}) | HUD System: '{hud_sys}' | Simulated Objects: '{hud_obj}'")
             page.screenshot(path=shot_path)
             print(f"    Saved {shot_path}")
 
-        # 4. Verify Tracking Overlays
-        reticle = page.locator("#tracker-target")
-        reticle_count = reticle.count()
-        print(f"[OK] Target Reticle Element Found: count={reticle_count}")
-        assert reticle_count == 1, "Target reticle element not found!"
+        # 4. Verify Tracking Reticles & Subsystem Callouts
+        for ret_id in ["rA", "rB", "rC", "rT"]:
+            assert page.locator(f"#{ret_id}").count() == 1, f"Missing reticle {ret_id}"
+        print("[OK] All 4 tracking reticles present in DOM.")
 
-        # Check callout tags
-        for tag_id in ["tag-sensors", "tag-gimbal", "tag-ejectors", "tag-winch"]:
+        for tag_id in ["tgLid", "tgGim", "tgEj", "tgWin"]:
             assert page.locator(f"#{tag_id}").count() == 1, f"Missing callout tag {tag_id}"
         print("[OK] All 4 Subsystem 3D Callout Tags present in DOM.")
 
         # 5. Verify Sensor Feed Canvas
-        feed_canvas = page.locator("#sensor-feed-canvas")
-        feed_channel = page.locator("#feed-channel-label").inner_text()
-        print(f"[OK] Sensor Feed Channel: '{feed_channel}'")
+        feed_canvas = page.locator("#feed")
+        assert feed_canvas.count() == 1, "Missing sensor feed canvas"
+        print("[OK] Sensor Feed canvas verified.")
 
         # 6. Test Mobile Viewport (390 x 844)
         print("\nTesting mobile layout (390 x 844)...")
         mobile_page = context.new_page()
         mobile_page.set_viewport_size({"width": 390, "height": 844})
-        mobile_page.goto(FILE_URL, wait_until="load", timeout=15000)
-        mobile_page.wait_for_timeout(1500)
+        mobile_page.goto(HTTP_URL, wait_until="load", timeout=15000)
+        mobile_page.wait_for_timeout(2000)
 
         # Check horizontal overflow
         scroll_width = mobile_page.evaluate("() => document.documentElement.scrollWidth")

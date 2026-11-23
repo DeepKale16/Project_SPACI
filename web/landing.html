@@ -1,2743 +1,1069 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SPACI — Autonomous Space Debris Capture Demonstrator</title>
-  <meta name="description" content="SPACI is an autonomous tethered-net debris capture machine with LiDAR-camera perception and closed-form ballistic GNC, validated first as a ground demonstrator.">
-  
-  <!-- Typography from Google Fonts -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>SPACI — Autonomous Space Debris Capture Machine</title>
+  <meta name="description" content="SPACI is an autonomous space-debris detection and capture machine. Detects moving debris, aims automatically, and captures in a tethered net. Ground demonstrator concept.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛰️</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@200;300;400;600&display=swap" rel="stylesheet">
-  
-  <!-- Three.js r128 from cdnjs -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@200;300;400;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
   <style>
-    /* ==========================================================================
-       SPACI 3D Landing Page Stylesheet
-       Restrained Cinema Aesthetic: Space (#05080F), Ice Blue (#7FD1FF), Amber (#FFB454)
-       ========================================================================== */
+    /* Layout: fixed WebGL globe behind scroll scenes; the camera flies a path driven by scroll. */
     :root {
-      --bg-space: #05080F;
-      --accent-sensing: #7FD1FF;
-      --accent-capture: #FFB454;
-      --text-main: #F1F5F9;
-      --text-secondary: #94A3B8;
-      --text-muted: #64748B;
-      --border-glass: rgba(127, 209, 255, 0.16);
-      --border-active: rgba(255, 180, 84, 0.45);
-      --surface-glass: rgba(8, 14, 26, 0.72);
-      --surface-elevated: rgba(14, 23, 42, 0.85);
-      
-      --font-headline: 'Sora', sans-serif;
-      --font-body: 'Inter', sans-serif;
-      --font-mono: 'JetBrains Mono', monospace;
+      --bg: #05080F;
+      --ink: #EAF0F8;
+      --mut: #9AA8BD;
+      --dim: #7B8AA3;
+      --cy: #7FD1FF;
+      --am: #FFB454;
+      --line: rgba(255, 255, 255, 0.1);
+      --glass: rgba(7, 12, 22, 0.65);
+      --gl: max(20px, env(safe-area-inset-left, 0px));
+      --gr: max(20px, env(safe-area-inset-right, 0px));
+      color-scheme: dark;
     }
-
-    * {
-      box-sizing: border-box;
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
       margin: 0;
-      padding: 0;
-    }
-
-    html, body {
-      background-color: var(--bg-space);
-      color: var(--text-main);
-      font-family: var(--font-body);
-      font-weight: 400;
-      line-height: 1.6;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      font-size: 17px;
+      line-height: 1.65;
       overflow-x: hidden;
-      width: 100%;
-      scroll-behavior: smooth;
     }
-
-    /* Fixed WebGL Canvas Behind Content */
-    #webgl-canvas {
+    a { color: var(--cy); }
+    a:focus-visible, button:focus-visible { outline: 2px solid var(--cy); outline-offset: 3px; }
+    #gl { position: fixed; left: 0; top: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+    .vig { position: fixed; inset: 0; z-index: 1; pointer-events: none; background: radial-gradient(ellipse at 50% 50%, transparent 45%, rgba(3, 5, 10, 0.8) 100%); }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; }
+    
+    header.nav {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 1;
-      display: block;
-      pointer-events: none;
-    }
-
-    /* Cinematic Vignette Overlay */
-    .vignette-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      pointer-events: none;
-      z-index: 2;
-      background: radial-gradient(circle at 50% 50%, transparent 45%, rgba(5, 8, 15, 0.65) 80%, rgba(5, 8, 15, 0.95) 100%);
-    }
-
-    /* WebGL Fallback if Context Fails */
-    .webgl-fallback {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 0;
-      background: radial-gradient(circle at 75% 35%, #0B1938 0%, #05080F 70%);
-    }
-
-    /* Screen Projected HUD Trackers */
-    #screen-trackers-layer {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      pointer-events: none;
-      z-index: 3;
-      overflow: hidden;
-    }
-
-    .debris-bracket {
-      position: absolute;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      font-family: var(--font-mono);
-      font-size: 0.72rem;
-      color: var(--accent-sensing);
-      transition: opacity 0.3s ease;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 3px;
-    }
-
-    .bracket-box {
-      width: 32px;
-      height: 32px;
-      position: relative;
-      border: 1px dashed rgba(127, 209, 255, 0.4);
-    }
-
-    .bracket-box::before {
-      content: '';
-      position: absolute;
-      top: -2px;
-      left: -2px;
-      width: 6px;
-      height: 6px;
-      border-top: 2px solid var(--accent-sensing);
-      border-left: 2px solid var(--accent-sensing);
-    }
-
-    .bracket-box::after {
-      content: '';
-      position: absolute;
-      bottom: -2px;
-      right: -2px;
-      width: 6px;
-      height: 6px;
-      border-bottom: 2px solid var(--accent-sensing);
-      border-right: 2px solid var(--accent-sensing);
-    }
-
-    .debris-label {
-      background: rgba(5, 8, 15, 0.85);
-      padding: 2px 6px;
-      border-radius: 2px;
-      border: 1px solid rgba(127, 209, 255, 0.25);
-      letter-spacing: 0.5px;
-      white-space: nowrap;
-    }
-
-    /* Amber Target Lock Reticle */
-    .target-reticle {
-      position: absolute;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      font-family: var(--font-mono);
-      font-size: 0.76rem;
-      color: var(--accent-capture);
-      transition: opacity 0.35s ease;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 4px;
-    }
-
-    .target-box {
-      width: 48px;
-      height: 48px;
-      position: relative;
-      border: 1px solid rgba(255, 180, 84, 0.5);
-      border-radius: 4px;
-      box-shadow: 0 0 14px rgba(255, 180, 84, 0.25);
-    }
-
-    .target-box::before {
-      content: '';
-      position: absolute;
-      top: -3px;
-      left: -3px;
-      width: 10px;
-      height: 10px;
-      border-top: 2.5px solid var(--accent-capture);
-      border-left: 2.5px solid var(--accent-capture);
-    }
-
-    .target-box::after {
-      content: '';
-      position: absolute;
-      bottom: -3px;
-      right: -3px;
-      width: 10px;
-      height: 10px;
-      border-bottom: 2.5px solid var(--accent-capture);
-      border-right: 2.5px solid var(--accent-capture);
-    }
-
-    .target-label {
-      background: rgba(18, 12, 4, 0.9);
-      padding: 3px 8px;
-      border-radius: 2px;
-      border: 1px solid rgba(255, 180, 84, 0.55);
-      letter-spacing: 0.8px;
-      font-weight: 600;
-      white-space: nowrap;
-    }
-
-    .target-telemetry {
-      color: #FCD34D;
-      font-size: 0.68rem;
-    }
-
-    /* 3D Machine Callout Tags */
-    .callout-tag {
-      position: absolute;
-      transform: translate(-50%, -100%);
-      pointer-events: none;
-      font-family: var(--font-mono);
-      font-size: 0.7rem;
-      color: var(--accent-sensing);
-      background: rgba(8, 14, 26, 0.88);
-      border: 1px solid rgba(127, 209, 255, 0.3);
-      padding: 4px 9px;
-      border-radius: 3px;
-      white-space: nowrap;
-      transition: opacity 0.3s ease;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .callout-dot {
-      width: 5px;
-      height: 5px;
-      border-radius: 50%;
-      background: var(--accent-sensing);
-      box-shadow: 0 0 6px var(--accent-sensing);
-    }
-
-    /* Bottom-Left Fixed HUD Readout */
-    .hud-bottom-left {
-      position: fixed;
-      bottom: 24px;
-      left: 28px;
-      z-index: 10;
-      font-family: var(--font-mono);
-      font-size: 0.72rem;
-      background: rgba(8, 14, 26, 0.85);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--border-glass);
-      border-left: 3px solid var(--accent-sensing);
-      border-radius: 6px;
-      padding: 10px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-    }
-
-    .hud-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      justify-content: space-between;
-    }
-
-    .hud-label {
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .hud-val {
-      color: var(--text-main);
-      font-weight: 500;
-    }
-
-    .hud-val.sensing {
-      color: var(--accent-sensing);
-    }
-
-    .hud-val.capture {
-      color: var(--accent-capture);
-    }
-
-    /* Top Navigation Bar */
-    .landing-header {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
+      left: 0; right: 0; top: 0;
       z-index: 20;
+      padding: calc(env(safe-area-inset-top, 0px) + 16px) var(--gr) 16px var(--gl);
       display: flex;
-      justify-content: space-between;
+      flex-wrap: wrap;
       align-items: center;
-      padding: 18px 36px;
-      background: linear-gradient(180deg, rgba(5, 8, 15, 0.9) 0%, rgba(5, 8, 15, 0) 100%);
-      pointer-events: auto;
+      justify-content: space-between;
+      gap: 12px 28px;
+      background: linear-gradient(180deg, rgba(5, 8, 15, 0.9), rgba(5, 8, 15, 0));
     }
-
-    .brand-mark {
-      font-family: var(--font-headline);
-      font-size: 1.15rem;
+    .logo {
+      font-family: Sora, sans-serif;
       font-weight: 600;
-      letter-spacing: 2px;
-      color: var(--text-main);
+      font-size: 20px;
+      letter-spacing: 0.34em;
+      color: var(--ink);
+      text-decoration: none;
       display: flex;
       align-items: center;
       gap: 10px;
-      text-decoration: none;
     }
-
-    .brand-badge {
-      font-family: var(--font-mono);
-      font-size: 0.62rem;
-      background: rgba(127, 209, 255, 0.12);
-      border: 1px solid var(--border-glass);
-      color: var(--accent-sensing);
-      padding: 2px 7px;
-      border-radius: 3px;
-      letter-spacing: 1px;
+    .badge-sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 400;
+      letter-spacing: 0.16em;
+      color: var(--dim);
+      padding: 3px 8px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 2px;
     }
-
-    .nav-actions {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-
-    .btn-hud-link {
-      font-family: var(--font-mono);
-      font-size: 0.78rem;
-      font-weight: 600;
-      color: var(--accent-sensing);
-      background: rgba(14, 23, 42, 0.8);
-      border: 1px solid var(--border-glass);
-      border-radius: 6px;
-      padding: 8px 16px;
-      text-decoration: none;
-      transition: all 0.22s ease;
+    .nav nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; font-size: 14px; }
+    .nav nav a { color: var(--mut); text-decoration: none; transition: color 0.2s; }
+    .nav nav a:hover { color: var(--ink); }
+    
+    .btn {
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 8px;
+      padding: 13px 26px;
+      border-radius: 2px;
+      font-weight: 600;
+      font-size: 14px;
+      text-decoration: none;
+      border: 1px solid transparent;
+      transition: box-shadow 0.25s, background 0.25s, border-color 0.25s, color 0.25s;
     }
-
-    .btn-hud-link:hover {
-      background: rgba(127, 209, 255, 0.16);
-      border-color: var(--accent-sensing);
-      color: #FFFFFF;
-      box-shadow: 0 0 14px rgba(127, 209, 255, 0.3);
-    }
-
-    /* Right Vertical Dot Navigation */
-    .dot-nav {
-      position: fixed;
-      right: 28px;
-      top: 50%;
-      transform: translateY(-50%);
-      z-index: 10;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      list-style: none;
-    }
-
-    .dot-item {
-      position: relative;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-    }
-
-    .dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: rgba(148, 163, 184, 0.3);
-      transition: all 0.25s ease;
-    }
-
-    .dot-item:hover .dot,
-    .dot-item.active .dot {
-      background: var(--accent-sensing);
-      transform: scale(1.6);
-      box-shadow: 0 0 8px var(--accent-sensing);
-    }
-
-    .dot-item.active .dot {
-      background: var(--accent-capture);
-      box-shadow: 0 0 10px var(--accent-capture);
-    }
-
-    .dot-tooltip {
-      position: absolute;
-      right: 22px;
-      font-family: var(--font-mono);
-      font-size: 0.68rem;
-      color: var(--text-secondary);
-      background: rgba(5, 8, 15, 0.9);
-      padding: 3px 8px;
-      border-radius: 3px;
-      border: 1px solid var(--border-glass);
-      white-space: nowrap;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.2s ease;
-    }
-
-    .dot-item:hover .dot-tooltip {
-      opacity: 1;
-    }
-
-    /* Scrollable Page Wrapper */
-    .scroll-content {
-      position: relative;
-      z-index: 4;
-      pointer-events: none;
-    }
-
-    /* Section Geometry */
-    .page-section {
-      min-height: 100vh;
+    .btn.pri { background: var(--cy); color: #06101C; }
+    .btn.pri:hover { background: #A9E3FF; box-shadow: 0 8px 40px -8px rgba(127, 209, 255, 0.65); }
+    .btn.gh { border-color: #2C3C5E; color: #C9D6E8; background: rgba(7, 12, 22, 0.55); font-weight: 500; }
+    .btn.gh:hover { border-color: var(--cy); color: var(--ink); }
+    
+    .scene { position: relative; z-index: 2; min-height: 100vh; display: flex; align-items: center; padding: 110px var(--gr) 80px var(--gl); }
+    .scene.r { justify-content: flex-end; }
+    .panel {
       width: 100%;
-      display: flex;
-      align-items: center;
-      padding: 80px 8% 80px 8%;
-      pointer-events: auto;
-      position: relative;
-    }
-
-    /* Glass Panels */
-    .glass-panel {
-      background: var(--surface-glass);
+      max-width: 480px;
+      padding: 36px;
+      background: var(--glass);
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
-      border: 1px solid var(--border-glass);
-      border-radius: 12px;
-      padding: 38px 44px;
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-      max-width: 620px;
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
     }
-
-    .glass-panel.wide {
-      max-width: 1080px;
-      width: 100%;
-    }
-
-    .section-tag {
-      font-family: var(--font-mono);
-      font-size: 0.72rem;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      color: var(--accent-sensing);
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .section-tag.capture {
-      color: var(--accent-capture);
-    }
-
-    .section-tag::before {
-      content: '';
-      width: 16px;
-      height: 1px;
-      background: currentColor;
-    }
-
-    h1.hero-title {
-      font-family: var(--font-headline);
-      font-size: clamp(2.4rem, 5vw, 4.4rem);
+    .panel h2 {
+      margin: 14px 0 14px;
+      font-family: Sora, sans-serif;
       font-weight: 300;
-      line-height: 1.1;
-      letter-spacing: -1px;
-      margin-bottom: 20px;
-      color: #FFFFFF;
+      font-size: clamp(28px, 3.4vw, 42px);
+      line-height: 1.12;
+      letter-spacing: -0.03em;
+      text-wrap: balance;
     }
-
-    h2.section-title {
-      font-family: var(--font-headline);
-      font-size: clamp(1.8rem, 3.5vw, 2.8rem);
-      font-weight: 300;
-      line-height: 1.2;
-      letter-spacing: -0.5px;
-      margin-bottom: 18px;
-      color: #FFFFFF;
+    .panel p { margin: 0; color: var(--mut); font-size: 16px; }
+    .eyebrow { color: var(--cy); margin: 0; }
+    .eyebrow.am { color: var(--am); }
+    
+    .hero-t { max-width: 780px; }
+    .hero-t h1 {
+      margin: 22px 0 0;
+      font-family: Sora, sans-serif;
+      font-weight: 200;
+      font-size: clamp(52px, 8.6vw, 120px);
+      line-height: 0.98;
+      letter-spacing: -0.05em;
     }
-
-    .lead-paragraph {
-      font-size: 1.05rem;
-      color: var(--text-secondary);
-      line-height: 1.7;
-      margin-bottom: 22px;
+    .hero-t h1 span { display: block; color: var(--mut); }
+    .hero-t p.lead { margin: 30px 0 0; max-width: 540px; font-size: 20px; color: #B5C2D6; line-height: 1.55; }
+    .cta { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 38px; }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--am); margin-right: 12px; animation: pl 2.6s ease-in-out infinite; }
+    @keyframes pl { 50% { opacity: 0.3; } }
+    
+    .rows { margin-top: 22px; border-top: 1px solid var(--line); }
+    .rows div { display: flex; flex-wrap: wrap; gap: 4px 24px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+    .rows b { flex: 0 0 96px; font-family: 'JetBrains Mono', monospace; font-weight: 400; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; }
+    .rows span { flex: 1 1 160px; min-width: 0; color: var(--mut); font-size: 15px; }
+    
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+    .chips span { padding: 6px 12px; border: 1px solid #2C3C5E; border-radius: 2px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #C9D6E8; }
+    .chips span.on { border-color: var(--am); color: var(--am); background: rgba(255, 180, 84, 0.08); }
+    
+    .hint { position: absolute; left: calc(var(--gl) + 250px); bottom: 30px; color: var(--dim); display: flex; align-items: center; gap: 12px; }
+    .hint i { display: block; width: 1px; height: 42px; background: linear-gradient(var(--cy), transparent); animation: ln 2.2s ease-in-out infinite; }
+    @keyframes ln {
+      0% { transform: scaleY(0); transform-origin: top; }
+      50% { transform: scaleY(1); transform-origin: top; }
+      51% { transform-origin: bottom; }
+      100% { transform: scaleY(0); transform-origin: bottom; }
     }
-
-    .plain-paragraph {
-      font-size: 0.94rem;
-      color: var(--text-secondary);
-      line-height: 1.7;
-      margin-bottom: 16px;
-    }
-
-    /* Honest Fact Disclaimer Pill */
-    .honesty-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(14, 23, 42, 0.75);
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      border-radius: 6px;
-      padding: 8px 14px;
-      font-size: 0.78rem;
-      color: var(--text-muted);
-      font-family: var(--font-mono);
-      margin-top: 10px;
-    }
-
-    .honesty-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #94A3B8;
-    }
-
-    /* Stat Cards in Problem Section */
-    .stats-row {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 16px;
-      margin: 24px 0 18px 0;
-    }
-
-    .stat-card {
-      background: rgba(14, 23, 42, 0.65);
-      border: 1px solid rgba(127, 209, 255, 0.12);
-      border-radius: 8px;
-      padding: 16px;
-    }
-
-    .stat-num {
-      font-family: var(--font-headline);
-      font-size: 1.9rem;
-      font-weight: 300;
-      color: #FFFFFF;
-      line-height: 1;
-      margin-bottom: 6px;
-    }
-
-    .stat-label {
-      font-size: 0.78rem;
-      color: var(--text-muted);
-      line-height: 1.35;
-    }
-
-    .source-citation {
-      font-family: var(--font-mono);
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      margin-top: 8px;
-    }
-
-    .source-citation a {
-      color: var(--accent-sensing);
-      text-decoration: underline;
-    }
-
-    /* Detect Interactive Canvas Feed */
-    .sensor-feed-box {
-      margin-top: 20px;
-      border: 1px solid rgba(127, 209, 255, 0.25);
-      border-radius: 8px;
-      overflow: hidden;
-      background: #02050D;
-    }
-
-    .feed-header {
-      background: rgba(14, 23, 42, 0.85);
-      padding: 8px 14px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-family: var(--font-mono);
-      font-size: 0.72rem;
-      border-bottom: 1px solid rgba(127, 209, 255, 0.15);
-    }
-
-    .feed-canvas {
-      display: block;
-      width: 100%;
-      height: 160px;
-      background: #020409;
-    }
-
-    /* Specification Table */
-    .spec-table-wrap {
-      overflow-x: auto;
-      margin-top: 20px;
-    }
-
-    .spec-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.86rem;
-      text-align: left;
-    }
-
-    .spec-table th {
-      font-family: var(--font-mono);
-      font-size: 0.72rem;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      color: var(--accent-sensing);
-      padding: 12px 14px;
-      border-bottom: 1px solid rgba(127, 209, 255, 0.25);
-      background: rgba(14, 23, 42, 0.5);
-    }
-
-    .spec-table td {
-      padding: 12px 14px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      color: var(--text-secondary);
-    }
-
-    .spec-table tr:hover td {
-      background: rgba(127, 209, 255, 0.03);
-      color: var(--text-main);
-    }
-
-    .spec-tag {
-      font-family: var(--font-mono);
-      font-size: 0.76rem;
-      color: #FFFFFF;
-      font-weight: 500;
-    }
-
-    /* Pipeline 5-Stage Step Flow */
-    .pipeline-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 14px;
-      margin-top: 24px;
-    }
-
-    .pipeline-card {
-      background: rgba(14, 23, 42, 0.6);
-      border: 1px solid rgba(127, 209, 255, 0.15);
-      border-radius: 8px;
-      padding: 18px 16px;
-      position: relative;
-    }
-
-    .pipeline-step {
-      font-family: var(--font-mono);
-      font-size: 0.68rem;
-      color: var(--accent-sensing);
-      margin-bottom: 6px;
-    }
-
-    .pipeline-name {
-      font-family: var(--font-headline);
-      font-size: 1.05rem;
-      font-weight: 400;
-      color: #FFFFFF;
-      margin-bottom: 8px;
-    }
-
-    .pipeline-desc {
-      font-size: 0.78rem;
-      color: var(--text-muted);
-      line-height: 1.5;
-    }
-
-    /* Ground vs Orbit Comparison */
-    .compare-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      margin-top: 24px;
-    }
-
-    .compare-card {
-      background: rgba(14, 23, 42, 0.65);
-      border: 1px solid rgba(127, 209, 255, 0.15);
-      border-radius: 8px;
-      padding: 24px;
-    }
-
-    .compare-card.active-demonstrator {
-      border-color: rgba(127, 209, 255, 0.45);
-      background: rgba(14, 28, 54, 0.65);
-    }
-
-    .compare-title {
-      font-family: var(--font-headline);
-      font-size: 1.15rem;
-      color: #FFFFFF;
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .compare-badge {
-      font-family: var(--font-mono);
-      font-size: 0.65rem;
-      padding: 2px 7px;
-      border-radius: 3px;
-      background: rgba(127, 209, 255, 0.15);
-      color: var(--accent-sensing);
-    }
-
-    .compare-list {
-      list-style: none;
-      font-size: 0.84rem;
-      color: var(--text-secondary);
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .compare-list li {
-      position: relative;
-      padding-left: 18px;
-    }
-
-    .compare-list li::before {
-      content: '—';
+    
+    .rail { position: fixed; right: calc(var(--gr) - 4px); top: 50%; transform: translateY(-50%); z-index: 15; display: flex; flex-direction: column; gap: 14px; }
+    .rail a { display: block; width: 9px; height: 9px; border-radius: 50%; border: 1px solid #5B6C8C; background: transparent; transition: all 0.3s; }
+    .rail a.on { background: var(--cy); border-color: var(--cy); box-shadow: 0 0 14px 2px rgba(127, 209, 255, 0.7); }
+    
+    .hud { position: fixed; left: var(--gl); bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); z-index: 15; color: var(--dim); font-size: 11px; line-height: 1.8; pointer-events: none; transition: opacity 0.4s; }
+    .hud b { color: var(--cy); font-weight: 500; }
+    
+    .ret { position: fixed; left: 0; top: 0; z-index: 10; width: 58px; height: 58px; margin: -29px 0 0 -29px; pointer-events: none; opacity: 0; will-change: transform; }
+    .ret::before {
+      content: "";
       position: absolute;
-      left: 0;
-      color: var(--text-muted);
+      inset: 0;
+      border: 1px solid var(--cy);
+      background:
+        linear-gradient(var(--cy), var(--cy)) 0 0/12px 2px no-repeat,
+        linear-gradient(var(--cy), var(--cy)) 0 0/2px 12px no-repeat,
+        linear-gradient(var(--cy), var(--cy)) 100% 0/12px 2px no-repeat,
+        linear-gradient(var(--cy), var(--cy)) 100% 0/2px 12px no-repeat,
+        linear-gradient(var(--cy), var(--cy)) 0 100%/12px 2px no-repeat,
+        linear-gradient(var(--cy), var(--cy)) 0 100%/2px 12px no-repeat,
+        linear-gradient(var(--cy), var(--cy)) 100% 100%/12px 2px no-repeat,
+        linear-gradient(var(--cy), var(--cy)) 100% 100%/2px 12px no-repeat;
+      border-color: rgba(127, 209, 255, 0.35);
     }
-
-    /* Measured Results Placeholder Cards */
-    .results-row {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 18px;
-      margin-top: 24px;
+    .ret.am::before {
+      border-color: rgba(255, 180, 84, 0.4);
+      background-image:
+        linear-gradient(var(--am), var(--am)),
+        linear-gradient(var(--am), var(--am)),
+        linear-gradient(var(--am), var(--am)),
+        linear-gradient(var(--am), var(--am)),
+        linear-gradient(var(--am), var(--am)),
+        linear-gradient(var(--am), var(--am)),
+        linear-gradient(var(--am), var(--am)),
+        linear-gradient(var(--am), var(--am));
     }
-
-    .placeholder-card {
-      border: 1.5px dashed rgba(127, 209, 255, 0.35);
-      background: rgba(14, 23, 42, 0.45);
-      border-radius: 8px;
-      padding: 24px;
-      text-align: center;
+    .ret em {
+      position: absolute;
+      left: 66px;
+      top: -2px;
+      white-space: nowrap;
+      font-style: normal;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      line-height: 1.5;
+      letter-spacing: 0.1em;
+      color: var(--cy);
+      text-shadow: 0 0 8px #000;
     }
-
-    .placeholder-bracket {
-      font-family: var(--font-mono);
-      font-size: 1.8rem;
-      color: var(--accent-sensing);
-      margin-bottom: 8px;
-    }
-
-    .placeholder-title {
-      font-family: var(--font-headline);
-      font-size: 0.95rem;
-      color: #FFFFFF;
-      margin-bottom: 6px;
-    }
-
-    .placeholder-sub {
-      font-size: 0.76rem;
-      color: var(--text-muted);
-    }
-
-    /* Subsystems Grid */
-    .subsystems-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 18px;
-      margin-top: 24px;
-    }
-
-    .subsystem-card {
-      background: rgba(14, 23, 42, 0.65);
-      border: 1px solid var(--border-glass);
-      border-radius: 8px;
-      padding: 22px;
-    }
-
-    .subsystem-card h3 {
-      font-family: var(--font-headline);
-      font-size: 1.05rem;
-      color: #FFFFFF;
-      margin-bottom: 10px;
-    }
-
-    /* CTA Section */
-    .cta-actions {
+    .ret.am em { color: var(--am); left: auto; right: 66px; text-align: right; }
+    .ret em small { display: block; color: #B5C2D6; font-size: 11px; letter-spacing: 0.06em; }
+    
+    .final { position: relative; z-index: 2; background: linear-gradient(180deg, rgba(5, 8, 15, 0), rgba(5, 8, 15, 0.9) 220px, rgba(5, 8, 15, 0.96)); }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 130px var(--gr) 110px var(--gl); }
+    .final h2 { margin: 14px 0 0; max-width: 820px; font-family: Sora, sans-serif; font-weight: 200; font-size: clamp(34px, 5vw, 64px); line-height: 1.06; letter-spacing: -0.035em; text-wrap: balance; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-top: 56px; }
+    .card { min-width: 0; padding: 30px 28px; border: 1px solid var(--line); background: rgba(12, 19, 34, 0.7); border-radius: 2px; }
+    .card.dash { border-style: dashed; border-color: #2C3C5E; background: transparent; }
+    .card h3 { margin: 0 0 10px; font-family: Sora, sans-serif; font-weight: 400; font-size: 22px; letter-spacing: -0.01em; }
+    .card p { margin: 0; font-size: 15px; color: var(--mut); }
+    .card .big { margin: 0 0 18px; font-family: Sora, sans-serif; font-weight: 200; font-size: 46px; line-height: 1; letter-spacing: -0.03em; color: var(--ink); }
+    .card.hi { border-color: rgba(127, 209, 255, 0.6); box-shadow: 0 24px 70px -24px rgba(127, 209, 255, 0.35); }
+    .sp { height: 110px; }
+    .endcta h2 { font-size: clamp(46px, 8vw, 108px); line-height: 1; letter-spacing: -0.045em; }
+    
+    footer {
+      border-top: 1px solid var(--line);
+      padding: 40px var(--gr) 40px var(--gl);
       display: flex;
-      gap: 14px;
       flex-wrap: wrap;
-      margin-top: 26px;
-    }
-
-    .btn-cta {
-      font-family: var(--font-mono);
-      font-size: 0.82rem;
-      font-weight: 600;
-      padding: 12px 24px;
-      border-radius: 6px;
-      text-decoration: none;
-      transition: all 0.22s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      cursor: pointer;
-    }
-
-    .btn-cta-primary {
-      background: linear-gradient(135deg, rgba(127, 209, 255, 0.3) 0%, rgba(30, 58, 138, 0.5) 100%);
-      border: 1.5px solid var(--accent-sensing);
-      color: #FFFFFF;
-      box-shadow: 0 0 20px rgba(127, 209, 255, 0.25);
-    }
-
-    .btn-cta-primary:hover {
-      background: linear-gradient(135deg, rgba(127, 209, 255, 0.45) 0%, rgba(30, 58, 138, 0.7) 100%);
-      box-shadow: 0 0 28px rgba(127, 209, 255, 0.45);
-      transform: translateY(-2px);
-    }
-
-    .btn-cta-secondary {
-      background: rgba(14, 23, 42, 0.8);
-      border: 1px solid var(--border-glass);
-      color: var(--text-secondary);
-    }
-
-    .btn-cta-secondary:hover {
-      border-color: var(--accent-sensing);
-      color: #FFFFFF;
-      transform: translateY(-2px);
-    }
-
-    /* Footer */
-    .landing-footer {
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 40px 8%;
-      background: #03050A;
-      display: flex;
       justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 20px;
-      font-size: 0.8rem;
-      color: var(--text-muted);
+      gap: 18px 40px;
+      color: var(--mut);
+      font-size: 14px;
+      background: #05080F;
       position: relative;
-      z-index: 5;
+      z-index: 2;
     }
-
-    .footer-credits a {
-      color: var(--text-secondary);
-      text-decoration: none;
+    footer p { margin: 6px 0 0; }
+    .nogl { position: fixed; inset: 0; z-index: 0; background: radial-gradient(ellipse 60% 50% at 70% 60%, #10305a, #05080F 70%); }
+    
+    .tag { position: fixed; left: 0; top: 0; z-index: 10; width: 0; height: 0; pointer-events: none; opacity: 0; will-change: transform; }
+    .tag::before { content: ""; position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; border-radius: 50%; background: var(--cy); box-shadow: 0 0 0 4px rgba(127, 209, 255, 0.22); }
+    .tag::after { content: ""; position: absolute; left: 4px; top: 0; width: 34px; height: 1px; background: rgba(127, 209, 255, 0.55); }
+    .tag .bx { position: absolute; left: 38px; top: -46px; padding: 0 0 8px 12px; border-left: 1px solid rgba(127, 209, 255, 0.55); white-space: nowrap; }
+    .tag.l::after { left: auto; right: 4px; }
+    .tag.l .bx { left: auto; right: 38px; padding: 0 12px 8px 0; border-left: 0; border-right: 1px solid rgba(127, 209, 255, 0.55); text-align: right; }
+    .tag.d .bx { top: 10px; padding: 8px 0 0 12px; }
+    .tag.l.d .bx { padding: 8px 12px 0 0; }
+    .tag b { display: block; font-family: 'JetBrains Mono', monospace; font-weight: 500; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); }
+    .tag span { display: block; width: 200px; white-space: normal; font-size: 12.5px; line-height: 1.4; color: var(--mut); }
+    .tag.l span { margin-left: auto; }
+    
+    .feed { display: block; width: 100%; height: auto; margin-top: 22px; border: 1px solid var(--line); background: #070b14; border-radius: 2px; }
+    .rows b.num { flex: 0 0 132px; font-family: Sora, sans-serif; font-size: 24px; font-weight: 300; letter-spacing: -0.02em; text-transform: none; color: var(--ink); }
+    .src { margin: 18px 0 0; font-size: 13px; line-height: 1.5; color: var(--dim); }
+    .src a { color: var(--cy); text-decoration: none; }
+    .src a:hover { text-decoration: underline; }
+    
+    .tbl { overflow-x: auto; margin-top: 44px; }
+    .spec { width: 100%; border-collapse: collapse; min-width: 520px; }
+    .spec th, .spec td { text-align: left; vertical-align: top; padding: 18px 20px 18px 0; border-top: 1px solid var(--line); }
+    .spec tr:last-child th, .spec tr:last-child td { border-bottom: 1px solid var(--line); }
+    .spec th { width: 190px; font-family: 'JetBrains Mono', monospace; font-weight: 400; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--cy); }
+    .spec td { font-size: 16px; color: var(--mut); }
+    .spec td b { color: var(--ink); font-weight: 500; }
+    
+    .steps { counter-reset: s; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0; margin-top: 48px; border-top: 1px solid var(--line); }
+    .steps div { padding: 24px 22px 8px 0; counter-increment: s; }
+    .steps div::before { content: counter(s, decimal-leading-zero); display: block; margin-bottom: 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.14em; color: var(--am); }
+    .steps h3 { margin: 0 0 8px; font-family: Sora, sans-serif; font-weight: 400; font-size: 20px; letter-spacing: -0.01em; }
+    .steps p { margin: 0; font-size: 15px; color: var(--mut); }
+    
+    .cmp { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 48px; }
+    .cmp ul { margin: 14px 0 0; padding-left: 18px; color: var(--mut); font-size: 15px; }
+    .cmp li { margin: 7px 0; }
+    
+    @media (max-width: 760px) {
+      .ret:not(.am) { display: none; }
+      .hero-t { padding: 22px 4px 0; background: linear-gradient(180deg, rgba(5, 8, 15, 0), rgba(5, 8, 15, 0.82) 28%); }
+      .tag span { width: 150px; }
+      .scene, .scene.r { justify-content: flex-start; align-items: flex-end; padding-bottom: 70px; }
+      .panel { padding: 24px; }
+      .hud { display: none; }
+      .rail { display: none; }
+      .nav nav a.hide { display: none; }
+      .hint { left: var(--gl); }
     }
-
-    .footer-credits a:hover {
-      color: var(--accent-sensing);
-      text-decoration: underline;
-    }
-
-    /* Mobile Adaptations */
-    @media (max-width: 900px) {
-      .landing-header {
-        padding: 14px 20px;
-      }
-      .page-section {
-        padding: 70px 5%;
-      }
-      .glass-panel {
-        padding: 26px 22px;
-      }
-      .compare-grid {
-        grid-template-columns: 1fr;
-      }
-      .dot-nav {
-        display: none;
-      }
-      .hud-bottom-left {
-        left: 14px;
-        bottom: 14px;
-        padding: 8px 12px;
-        font-size: 0.65rem;
-      }
-      .debris-bracket:nth-of-type(n+2) {
-        display: none; /* Hide extra tracking boxes on narrow screens */
-      }
-      .glass-panel {
-        background: rgba(5, 8, 15, 0.88); /* Text scrim over bright globe */
-      }
-    }
-
-    /* Accessibility: Reduced Motion */
     @media (prefers-reduced-motion: reduce) {
-      html, body {
-        scroll-behavior: auto;
-      }
-      .btn-cta, .btn-hud-link, .dot {
-        transition: none !important;
-      }
+      html { scroll-behavior: auto; }
+      .dot, .hint i { animation: none; }
     }
   </style>
 </head>
 <body>
 
-  <!-- WebGL Background Canvas -->
-  <canvas id="webgl-canvas"></canvas>
-  
-  <!-- Fallback Background if WebGL Unavailable -->
-  <div class="webgl-fallback" id="webgl-fallback"></div>
+<canvas id="gl" aria-label="Interactive 3D globe surrounded by orbiting space debris"></canvas>
+<div class="vig"></div>
 
-  <!-- Vignette Overlay -->
-  <div class="vignette-overlay"></div>
+<header class="nav">
+  <a class="logo" href="#s0">
+    <span>SPACI</span>
+    <span class="badge-sub">RESEARCH DEMONSTRATOR</span>
+  </a>
+  <nav>
+    <a class="hide" href="#s1">Problem</a>
+    <a class="hide" href="#s2">Detect</a>
+    <a class="hide" href="#s3">Capture</a>
+    <a class="hide" href="#s4">Retrieve</a>
+    <a href="#s5">The machine</a>
+    <a class="btn gh" href="/" style="padding: 8px 18px; font-size: 13px;" title="Open Operational SPACI Mission Control HUD">Mission Control HUD &rarr;</a>
+    <a class="btn pri" href="#contact" style="padding: 8px 18px; font-size: 13px;">Collaborate</a>
+  </nav>
+</header>
 
-  <!-- Screen-Projected 2D Tracking Layer -->
-  <div id="screen-trackers-layer">
-    <!-- Debris Trackers (Projected onto 3D debris positions) -->
-    <div class="debris-bracket" id="tracker-debris-0" style="opacity: 0;">
-      <div class="bracket-box"></div>
-      <div class="debris-label">OBJ 1042 // DEFUNCT BUS</div>
-    </div>
-    <div class="debris-bracket" id="tracker-debris-1" style="opacity: 0;">
-      <div class="bracket-box"></div>
-      <div class="debris-label">OBJ 3891 // ROCKET BODY</div>
-    </div>
-    <div class="debris-bracket" id="tracker-debris-2" style="opacity: 0;">
-      <div class="bracket-box"></div>
-      <div class="debris-label">OBJ 0824 // FRAGMENT</div>
-    </div>
+<div class="rail" aria-label="Sections">
+  <a href="#s0" aria-label="Orbit"></a>
+  <a href="#s1" aria-label="Problem"></a>
+  <a href="#s2" aria-label="Detect and track"></a>
+  <a href="#s3" aria-label="Aim and capture"></a>
+  <a href="#s4" aria-label="Retrieve"></a>
+  <a href="#s5" aria-label="The machine"></a>
+</div>
 
-    <!-- Derelict Target Lock Reticle -->
-    <div class="target-reticle" id="tracker-target" style="opacity: 0;">
-      <div class="target-box"></div>
-      <div class="target-label" id="target-hud-state">TRK 07 / LOCKED > NET OUT > CLOSING > RETRIEVED</div>
-      <div class="target-telemetry" id="target-hud-telemetry">REL VEL: 0.42 m/s // MISS ERR: 4.8 cm</div>
-    </div>
+<div class="hud mono" id="hud" style="letter-spacing: 0.14em;">
+  <div>SYS <b id="hSys">ORBIT VIEW</b></div>
+  <div>VIEW <b>CONCEPT</b> not to scale</div>
+  <div>OBJECTS <b id="hObj">0</b> simulated</div>
+  <div>TRACKING <b id="hTrk">0</b></div>
+</div>
 
-    <!-- 3D Callout Tags for Capture Machine Subsystems -->
-    <div class="callout-tag" id="tag-sensors" style="opacity: 0;">
-      <span class="callout-dot"></span>
-      <span>LIDAR CYLINDER & STEREO CAMERAS</span>
+<div class="ret" id="rA"><em>TRK 01<small id="rAt">debris</small></em></div>
+<div class="ret" id="rB"><em>TRK 02<small id="rBt">debris</small></em></div>
+<div class="ret" id="rC"><em>TRK 03<small id="rCt">debris</small></em></div>
+<div class="ret am" id="rT"><em id="rTt">TRK 07 / LOCKED<small id="rTs">Defunct satellite  412 mm/s</small></em></div>
+
+<div class="tag" id="tgLid"><div class="bx"><b>LiDAR and cameras</b><span>Measure range and shape, and find the object in every frame.</span></div></div>
+<div class="tag l" id="tgGim"><div class="bx"><b>Pan-tilt mount</b><span>Turns the sensor head and net aim onto the target.</span></div></div>
+<div class="tag d" id="tgEj"><div class="bx"><b>4 pneumatic ejectors</b><span>Fire the corners of the net outward so it opens.</span></div></div>
+<div class="tag l d" id="tgWin"><div class="bx"><b>Winch and tether</b><span>Closes the net with a drawstring, then reels it in.</span></div></div>
+
+<main>
+  <section class="scene" id="s0">
+    <div class="hero-t">
+      <p class="mono eyebrow"><span class="dot"></span>Space-debris capture machine</p>
+      <h1>Catch what's <span>left behind.</span></h1>
+      <p class="lead">SPACI is a machine that detects moving debris, aims at it automatically and captures it in a tethered net. We build and prove it first as a ground demonstrator.</p>
+      <div class="cta">
+        <a class="btn pri" href="#s2">Fly the pipeline</a>
+        <a class="btn gh" href="#s5">See the machine</a>
+        <a class="btn gh" href="/" title="Open Mission Control HUD">Launch Mission Control HUD &rarr;</a>
+      </div>
     </div>
-    <div class="callout-tag" id="tag-gimbal" style="opacity: 0;">
-      <span class="callout-dot"></span>
-      <span>PAN-TILT GIMBAL MOUNT</span>
+    <div class="hint mono"><i></i>Scroll to fly in</div>
+  </section>
+
+  <section class="scene r" id="s1">
+    <div class="panel">
+      <p class="mono eyebrow">The problem</p>
+      <h2>A crowded orbit, and nothing to clean it up.</h2>
+      <p>Old satellites, spent rocket stages and fragments keep circling the Earth at orbital speed. Every piece is a collision risk, and each collision makes more pieces.</p>
+      <div class="rows">
+        <div><b class="num">~47,000</b><span>objects tracked in orbit</span></div>
+        <div><b class="num">~1.5 M</b><span>debris pieces larger than 1 cm</span></div>
+        <div><b class="num">660+</b><span>break-ups and fragmentation events</span></div>
+      </div>
+      <p class="src">Source: <a href="https://sdup.esoc.esa.int/discosweb/statistics/" target="_blank" rel="noopener">ESA Space Debris Office, DISCOS statistics</a>, updated 17 Nov 2026. Figures are approximate.</p>
     </div>
-    <div class="callout-tag" id="tag-ejectors" style="opacity: 0;">
-      <span class="callout-dot"></span>
-      <span>4 PNEUMATIC EJECTOR TUBES</span>
+  </section>
+
+  <section class="scene r" id="s2">
+    <div class="panel">
+      <p class="mono eyebrow">Step 1 and 2 / Detect and track</p>
+      <h2>Two sensors, one track.</h2>
+      <p>LiDAR and cameras on the machine find the debris and estimate its position. Each new frame updates how fast it moves and where it is heading.</p>
+      <canvas id="feed" class="feed" width="420" height="210" aria-label="Illustrative sensor feed cycling between camera, LiDAR and fused views"></canvas>
     </div>
-    <div class="callout-tag" id="tag-winch" style="opacity: 0;">
-      <span class="callout-dot"></span>
-      <span>WINCH DRUM & TETHER REEL</span>
+  </section>
+
+  <section class="scene r" id="s3">
+    <div class="panel">
+      <p class="mono eyebrow am">Step 3 and 4 / Aim and capture</p>
+      <h2>Four ejectors. One net.</h2>
+      <p>The pan-tilt mount points the capture system at the target. Four pneumatic ejectors deploy the tethered nylon net, and magnets help hold ferrous debris.</p>
+      <div class="chips">
+        <span>Pan-tilt aim</span>
+        <span class="on">4 ejectors</span>
+        <span>Magnets</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="scene" id="s4">
+    <div class="panel">
+      <p class="mono eyebrow am">Step 5 / Retrieve</p>
+      <h2>Close the net. Bring it in.</h2>
+      <p>A drawstring closes the net around the catch and the winch reels the tether back to the machine.</p>
+      <div class="chips">
+        <span>Drawstring</span>
+        <span class="on">Winch</span>
+        <span>Tether</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="final" id="s5">
+    <div class="wrap">
+      <p class="mono eyebrow">The machine</p>
+      <h2>What SPACI is made of.</h2>
+      <div class="tbl">
+        <table class="spec">
+          <tr><th>Detect</th><td><b>LiDAR and cameras</b> find the debris and estimate its position and movement.</td></tr>
+          <tr><th>Aim</th><td>A <b>pan-tilt mechanism</b> points the capture system automatically.</td></tr>
+          <tr><th>Capture</th><td><b>Four pneumatic ejectors</b> deploy a <b>tethered nylon net</b>. Strategically placed <b>magnets</b> help hold ferrous debris.</td></tr>
+          <tr><th>Retrieve</th><td>A <b>drawstring and winch</b> close the net and bring the catch back.</td></tr>
+          <tr><th>Test debris</th><td>Simulated pieces that move, in different <b>shapes, materials and weights</b>.</td></tr>
+          <tr><th>Measured</th><td><b>Detection accuracy</b>, <b>deployment distance</b> and <b>capture success</b>.</td></tr>
+        </table>
+      </div>
+
+      <div class="sp"></div>
+      <p class="mono eyebrow">The AI and vision pipeline</p>
+      <h2>From sensor data to an aim point.</h2>
+      <div class="steps">
+        <div><h3>Sense</h3><p>LiDAR returns and camera frames arrive together.</p></div>
+        <div><h3>Detect</h3><p>A vision model finds debris in the camera image.</p></div>
+        <div><h3>Locate</h3><p>LiDAR range turns the detection into a 3D position.</p></div>
+        <div><h3>Predict</h3><p>Tracking over time estimates speed and direction.</p></div>
+        <div><h3>Aim</h3><p>The pan-tilt controller points at where the target will be.</p></div>
+      </div>
+
+      <div class="sp"></div>
+      <p class="mono eyebrow">Ground and orbit</p>
+      <h2>Why test on the ground first.</h2>
+      <div class="cmp">
+        <div class="card">
+          <h3>Ground demonstrator</h3>
+          <ul>
+            <li>Built and tested in a lab, at small scale.</li>
+            <li>Uses simulated debris that moves.</li>
+            <li>Safe, cheap and repeatable, so the same capture can be run many times.</li>
+            <li>Proves detection, aiming and net capture work together.</li>
+          </ul>
+        </div>
+        <div class="card hi">
+          <h3>Orbital machine (concept)</h3>
+          <ul>
+            <li>Flies near real debris, not from the ground.</li>
+            <li>Faces microgravity and orbital speeds that a lab cannot reproduce.</li>
+            <li>Needs the same detect, aim and capture chain to work.</li>
+            <li>The ground results show whether the method is worth taking further.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="sp"></div>
+      <p class="mono eyebrow">Results</p>
+      <h2>Three measurements decide whether it works.</h2>
+      <div class="grid">
+        <div class="card dash"><p class="big">[ % ]</p><h3>Detection accuracy</h3><p>How often debris is found and located correctly.</p></div>
+        <div class="card dash"><p class="big">[ m ]</p><h3>Deployment distance</h3><p>How far the net travels when the ejectors fire.</p></div>
+        <div class="card dash"><p class="big" style="color:var(--am)">[ n / N ]</p><h3>Capture success</h3><p>Trials where the net holds the debris.</p></div>
+      </div>
+      <p style="margin: 26px 0 0; color: var(--mut); font-size: 15px;">Results will be broken down by debris shape, material and weight. Replace the bracketed values with your trial data.</p>
+
+      <div class="sp"></div>
+      <p class="mono eyebrow">Subsystems</p>
+      <h2>Built across four disciplines.</h2>
+      <div class="grid">
+        <div class="card"><h3>Mechanical</h3><p>Pan-tilt mount, ejector frame, net, magnets, winch and the moving debris simulator.</p></div>
+        <div class="card"><h3>Electronics</h3><p>Sensor interfaces, valve and motor drive, and power for the whole system.</p></div>
+        <div class="card"><h3>Embedded control</h3><p>Real-time control of pan-tilt aiming, ejector timing and the winch.</p></div>
+        <div class="card hi"><h3>AI and vision</h3><p style="color: #B5C2D6;">Detection, tracking and path prediction from LiDAR and camera data.</p></div>
+      </div>
+
+      <div class="sp"></div>
+      <p class="mono eyebrow">Safety and education</p>
+      <h2>A safe place to study space technology.</h2>
+      <p style="max-width: 660px; margin: 26px 0 0; color: var(--mut); font-size: 18px;">
+        The demonstrator is built and tested on the ground, at laboratory scale. It does not go to orbit. Simulated debris lets researchers study detection and capture safely, and every trial is measured the same way so results can be compared and repeated. The 3D scenes on this page are a concept view, not to scale.
+      </p>
+      <p class="src">Earth imagery: NASA Blue Marble and night lights, via the MIT-licensed <a href="https://github.com/vasturiano/three-globe" target="_blank" rel="noopener">three-globe</a> project.</p>
+
+      <div class="sp"></div>
+      <div class="endcta">
+        <h2>Follow the build.</h2>
+        <div class="cta">
+          <a class="btn pri" href="#s2">Watch the demo</a>
+          <a class="btn gh" href="#s5">Explore the machine</a>
+          <a class="btn gh" href="/" title="Open Live Mission Control HUD">Mission Control HUD &rarr;</a>
+          <a class="btn gh" href="https://github.com/DeepKale16/Project_SPACI" target="_blank" rel="noopener">GitHub Repository &rarr;</a>
+        </div>
+      </div>
     </div>
   </div>
+</main>
 
-  <!-- Fixed Top Header -->
-  <header class="landing-header">
-    <a href="#hero" class="brand-mark">
-      <span>SPACI</span>
-      <span class="brand-badge">RESEARCH DEMONSTRATOR</span>
-    </a>
-    <div class="nav-actions">
-      <a href="/" class="btn-hud-link" title="Open Operational SPACI Mission Control HUD">
-        <span>MISSION CONTROL HUD</span>
-        <span style="font-size: 0.9rem;">&rarr;</span>
-      </a>
-    </div>
-  </header>
+<footer id="contact">
+  <div>
+    <div class="logo" style="font-size: 16px;">SPACI</div>
+    <p>Space-debris detection and capture demonstrator.</p>
+  </div>
+  <div>
+    <div class="mono" style="font-size: 11px; color: var(--dim);">Repository & Mission Control</div>
+    <p><a href="/" style="text-decoration: none;">Launch SPACI 3.0 Mission Control HUD</a></p>
+    <p><a href="https://github.com/DeepKale16/Project_SPACI" target="_blank" rel="noopener" style="text-decoration: none;">github.com/DeepKale16/Project_SPACI</a></p>
+  </div>
+</footer>
 
-  <!-- Right Vertical Dot Navigation -->
-  <ul class="dot-nav" id="dot-nav">
-    <li class="dot-item active" data-section="0"><span class="dot-tooltip">Hero</span><span class="dot"></span></li>
-    <li class="dot-item" data-section="1"><span class="dot-tooltip">Orbit Problem</span><span class="dot"></span></li>
-    <li class="dot-item" data-section="2"><span class="dot-tooltip">Detect & Track</span><span class="dot"></span></li>
-    <li class="dot-item" data-section="3"><span class="dot-tooltip">Aim & Capture</span><span class="dot"></span></li>
-    <li class="dot-item" data-section="4"><span class="dot-tooltip">Retrieve</span><span class="dot"></span></li>
-    <li class="dot-item" data-section="5"><span class="dot-tooltip">Architecture</span><span class="dot"></span></li>
-    <li class="dot-item" data-section="6"><span class="dot-tooltip">Ground Test</span><span class="dot"></span></li>
-    <li class="dot-item" data-section="7"><span class="dot-tooltip">Collaborate</span><span class="dot"></span></li>
-  </ul>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function() {
+  var THREE = window.THREE;
+  var cv = document.getElementById('gl');
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var renderer;
+  try {
+    if (!THREE) throw new Error('no three');
+    renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: false, powerPreference: 'high-performance' });
+  } catch(e) {
+    var f = document.createElement('div'); f.className = 'nogl'; document.body.insertBefore(f, document.body.firstChild);
+    cv.style.display = 'none'; return;
+  }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setClearColor(0x03050a, 1);
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(38, 1, 0.005, 400);
+  var seed = 11; function sr() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
 
-  <!-- Bottom-Left HUD Telemetry Box -->
-  <aside class="hud-bottom-left" aria-label="Scene Readout">
-    <div class="hud-row">
-      <span class="hud-label">STAGE</span>
-      <span class="hud-val sensing" id="hud-stage-name">STAGE 0 // ORBITAL SWEEP</span>
-    </div>
-    <div class="hud-row">
-      <span class="hud-label">MODE</span>
-      <span class="hud-val">VIEW CONCEPT (NOT TO SCALE)</span>
-    </div>
-    <div class="hud-row">
-      <span class="hud-label">SURVEILLANCE</span>
-      <span class="hud-val" id="hud-object-count">47,000+ CATALOGED</span>
-    </div>
-    <div class="hud-row">
-      <span class="hud-label">TARGET GNC</span>
-      <span class="hud-val capture" id="hud-lock-status">ACQUIRING BEARING</span>
-    </div>
-  </aside>
+  /* Sun, earthshine and fill */
+  var SUN = new THREE.Vector3(1, 0.3, 0.5).normalize();
+  var sunL = new THREE.DirectionalLight(0xfff4e6, 3.2); sunL.position.copy(SUN).multiplyScalar(30); scene.add(sunL);
+  scene.add(new THREE.HemisphereLight(0x5a86c8, 0x05070d, 0.35));
 
-  <!-- Scroll-Driven Content Sections -->
-  <main class="scroll-content">
+  /* Stars with colour variety, plus a faint Milky Way band */
+  (function() {
+    var n = 4200, pos = new Float32Array(n * 3), col = new Float32Array(n * 3), band = new THREE.Vector3(0.3, 0.8, -0.5).normalize();
+    for (var i = 0; i < n; i++) {
+      var u, t, r, v, bias = sr() < 0.45;
+      do {
+        u = sr() * 2 - 1; t = sr() * Math.PI * 2; r = Math.sqrt(1 - u * u); v = new THREE.Vector3(r * Math.cos(t), u, r * Math.sin(t));
+      } while (bias && Math.abs(v.dot(band)) > 0.22);
+      var R = 90 + sr() * 30; pos[i * 3] = v.x * R; pos[i * 3 + 1] = v.y * R; pos[i * 3 + 2] = v.z * R;
+      var b = 0.18 + Math.pow(sr(), 3) * 0.9, w = sr();
+      col[i * 3] = b * (w < 0.2 ? 1 : 0.82 + 0.2 * w); col[i * 3 + 1] = b * 0.9; col[i * 3 + 2] = b * (w > 0.75 ? 1 : 0.9 + 0.1 * w);
+    }
+    var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    scene.add(new THREE.Points(g, new THREE.PointsMaterial({ size: 1.25, sizeAttenuation: false, vertexColors: true, transparent: true, opacity: 0.95, depthWrite: false })));
+  })();
 
-    <!-- Section 0: Hero -->
-    <section class="page-section" id="section-0" data-index="0">
-      <div class="glass-panel">
-        <div class="section-tag">SPACI ARCHITECTURE</div>
-        <h1 class="hero-title">Catch what's left behind.</h1>
-        <p class="lead-paragraph">
-          SPACI is an autonomous space debris detection and net-capture machine. It detects tumbling debris, calculates an intercept path, aims with a pan-tilt gimbal, and captures targets in a tethered nylon net.
-        </p>
-        <p class="plain-paragraph">
-          Built and proven first as a ground demonstrator to evaluate sensors, pneumatic ejection, and ballistic guidance without flight launch risks.
-        </p>
-        <div class="honesty-pill">
-          <span class="honesty-dot"></span>
-          <span>Proven first as a ground demonstrator. Orbital capture concept shown not to scale.</span>
-        </div>
-      </div>
-    </section>
+  /* Shared noise for clouds */
+  var NOISE = 'float h(vec3 p){p=fract(p*.3183099+.1);p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}' +
+    'float vn(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.-2.*f);return mix(mix(mix(h(i),h(i+vec3(1,0,0)),f.x),mix(h(i+vec3(0,1,0)),h(i+vec3(1,1,0)),f.x),f.y),mix(mix(h(i+vec3(0,0,1)),h(i+vec3(1,0,1)),f.x),mix(h(i+vec3(0,1,1)),h(i+vec3(1,1,1)),f.x),f.y),f.z);}' +
+    'float fbm(vec3 p){float a=.5,s=0.;for(int i=0;i<6;i++){s+=a*vn(p);p=p*2.03+7.1;a*=.5;}return s;}';
 
-    <!-- Section 1: Problem -->
-    <section class="page-section" id="section-1" data-index="1">
-      <div class="glass-panel">
-        <div class="section-tag">ORBITAL CONGESTION</div>
-        <h2 class="section-title">A crowded orbit, and nothing to clean it up.</h2>
-        <p class="plain-paragraph">
-          Low Earth orbit is saturated with non-functional rocket bodies, defunct payloads, and fragmentation debris from decades of orbital missions. Hypervelocity impacts create cascading breakup clouds under the Kessler syndrome.
-        </p>
-        
-        <div class="stats-row">
-          <div class="stat-card">
-            <div class="stat-num">~47,000</div>
-            <div class="stat-label">Tracked objects cataloged by space surveillance networks</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-num">~1.5M</div>
-            <div class="stat-label">Debris fragments larger than 1 cm in orbit</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-num">660+</div>
-            <div class="stat-label">Documented on-orbit breakups, explosions and collisions</div>
-          </div>
-        </div>
+  /* Real Earth imagery (NASA Blue Marble, night lights, ocean mask) */
+  var blank = new THREE.DataTexture(new Uint8Array([6, 14, 32, 255]), 1, 1, THREE.RGBAFormat); blank.needsUpdate = true;
+  var loader = new THREE.TextureLoader(), maxA = renderer.capabilities.getMaxAnisotropy();
+  
+  function fallbackDay() {
+    var c = document.createElement('canvas'); c.width = 512; c.height = 256; var x = c.getContext('2d'); x.fillStyle = '#14416f'; x.fillRect(0, 0, 512, 256);
+    for (var i = 0; i < 90; i++) {
+      x.fillStyle = 'rgba(' + (60 + sr() * 50 | 0) + ',' + (100 + sr() * 40 | 0) + ',60,.85)'; x.beginPath(); x.ellipse(sr() * 512, 40 + sr() * 176, 8 + sr() * 34, 6 + sr() * 20, sr() * 3, 0, 6.3); x.fill();
+    }
+    return new THREE.CanvasTexture(c);
+  }
 
-        <div class="source-citation">
-          Source: ESA Space Debris Office DISCOS Statistics (<a href="https://sdup.esoc.esa.int/discosweb/statistics" target="_blank" rel="noopener">sdup.esoc.esa.int/discosweb/statistics</a>)
-        </div>
-      </div>
-    </section>
-
-    <!-- Section 2: Detect & Track -->
-    <section class="page-section" id="section-2" data-index="2">
-      <div class="glass-panel">
-        <div class="section-tag">PERCEPTION & TRACKING</div>
-        <h2 class="section-title">LiDAR ranging and camera vision locate the tumbling target.</h2>
-        <p class="plain-paragraph">
-          Optical cameras classify object taxonomy while pulsed LiDAR estimates 3D metric coordinates. A pure-NumPy 6-state 3D Kalman filter tracks position and velocity vectors while filtering spurious sensor noise.
-        </p>
-
-        <!-- Dynamic Sensor Feed Canvas -->
-        <div class="sensor-feed-box">
-          <div class="feed-header">
-            <span id="feed-channel-label">CHANNEL: RGB SENSOR + BOUNDING BOX</span>
-            <span style="color: var(--accent-sensing);">ILLUSTRATIVE PIPELINE</span>
-          </div>
-          <canvas id="sensor-feed-canvas" class="feed-canvas" width="400" height="160"></canvas>
-        </div>
-      </div>
-    </section>
-
-    <!-- Section 3: Aim & Capture -->
-    <section class="page-section" id="section-3" data-index="3">
-      <div class="glass-panel">
-        <div class="section-tag capture">BALLISTIC GUIDANCE & LAUNCH</div>
-        <h2 class="section-title">Four pneumatic ejectors deploy the tethered net.</h2>
-        <p class="plain-paragraph">
-          The pan-tilt mechanism slews to the lead intercept angle computed by a closed-form quartic ballistic solver. High-pressure pneumatic barrels fire corner projectile slugs that pull open a high-tensile nylon net across the deployment corridor.
-        </p>
-        <p class="plain-paragraph">
-          Integrated permanent magnets assist corner slug adhesion when encountering ferrous fragments, maintaining envelope integrity during initial contact.
-        </p>
-      </div>
-    </section>
-
-    <!-- Section 4: Retrieve -->
-    <section class="page-section" id="section-4" data-index="4">
-      <div class="glass-panel">
-        <div class="section-tag capture">DRAWSTRING CINCH & WINCH</div>
-        <h2 class="section-title">The drawstring cinches tight, and the winch reels in the catch.</h2>
-        <p class="plain-paragraph">
-          Upon wrapping the tumbling debris, perimeter drawstrings pull the mouth of the net shut, locking the captured object inside. The motorized winch drum winds the high-tensile Dyneema tether back to the chassis.
-        </p>
-        <p class="plain-paragraph">
-          Kinematic momentum transfer is damped through tension regulation, preventing recoil against the capture vehicle.
-        </p>
-      </div>
-    </section>
-
-    <!-- Section 5: What SPACI is Made Of -->
-    <section class="page-section" id="section-5" data-index="5">
-      <div class="glass-panel wide">
-        <div class="section-tag">SYSTEM SPECIFICATION</div>
-        <h2 class="section-title">What SPACI is made of.</h2>
-        <p class="plain-paragraph">
-          A modular active debris removal framework engineered for predictable terrestrial validation.
-        </p>
-
-        <div class="spec-table-wrap">
-          <table class="spec-table">
-            <thead>
-              <tr>
-                <th>Function</th>
-                <th>Component</th>
-                <th>Engineering Implementation</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="spec-tag">Detect</td>
-                <td>LiDAR & Optical Cameras</td>
-                <td>Pulsed time-of-flight depth adapter combined with 640x640 monocular vision</td>
-              </tr>
-              <tr>
-                <td class="spec-tag">Aim</td>
-                <td>Pan-Tilt Gimbal</td>
-                <td>Dual-axis stepper actuation slewing across -15 to +45 deg tilt and +/- 75 deg pan</td>
-              </tr>
-              <tr>
-                <td class="spec-tag">Capture</td>
-                <td>4 Pneumatic Ejectors & Net</td>
-                <td>Four pressurized solenoid valves deploying corner slugs with magnetic assists and nylon mesh</td>
-              </tr>
-              <tr>
-                <td class="spec-tag">Retrieve</td>
-                <td>Drawstring & Winch</td>
-                <td>Perimeter cinching ring actuated by a geared DC motor spool drum</td>
-              </tr>
-              <tr>
-                <td class="spec-tag">Test Debris</td>
-                <td>Multi-Geometry Target Set</td>
-                <td>Representative scale mockups varying in shape, weight, and materials (aluminum, polymers, ferrous metals)</td>
-              </tr>
-              <tr>
-                <td class="spec-tag">Measured</td>
-                <td>Core Performance KPIs</td>
-                <td>Detection accuracy (mAP), deployment distance (m), and capture success rate (%)</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- AI and Vision Pipeline Flow -->
-        <div style="margin-top: 36px;">
-          <div class="section-tag">ALGORITHMIC PIPELINE</div>
-          <div class="pipeline-grid">
-            <div class="pipeline-card">
-              <div class="pipeline-step">01 // PERCEPTION</div>
-              <div class="pipeline-name">Sense</div>
-              <div class="pipeline-desc">Pulsed LiDAR depth returns fused with synchronous RGB optical frames.</div>
-            </div>
-            <div class="pipeline-card">
-              <div class="pipeline-step">02 // LOCALIZATION</div>
-              <div class="pipeline-name">Detect</div>
-              <div class="pipeline-desc">Deep neural object localization classifying 11 space debris taxonomy classes.</div>
-            </div>
-            <div class="pipeline-card">
-              <div class="pipeline-step">03 // FUSION</div>
-              <div class="pipeline-name">Locate</div>
-              <div class="pipeline-desc">MAD/IQR filtering rejecting ground and clutter returns to isolate 3D coordinates.</div>
-            </div>
-            <div class="pipeline-card">
-              <div class="pipeline-step">04 // ESTIMATION</div>
-              <div class="pipeline-name">Predict</div>
-              <div class="pipeline-desc">Pure-NumPy 3D Kalman filtering estimating velocity and tumbling variance.</div>
-            </div>
-            <div class="pipeline-card">
-              <div class="pipeline-step">05 // BALLISTICS</div>
-              <div class="pipeline-name">Aim</div>
-              <div class="pipeline-desc">Quartic polynomial intercept solution verifying 6-condition safety gate.</div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-    <!-- Section 6: Ground Demonstrator vs Orbital Concept -->
-    <section class="page-section" id="section-6" data-index="6">
-      <div class="glass-panel wide">
-        <div class="section-tag">TEST STRATEGY</div>
-        <h2 class="section-title">Why test on the ground first.</h2>
-        <p class="plain-paragraph">
-          Space debris cannot be captured directly from Earth's surface. A ground testbed validates actuator timing, sensor fusion latency, net opening physics, and safety interlocks at a fraction of the cost of an orbital launch.
-        </p>
-
-        <div class="compare-grid">
-          <div class="compare-card active-demonstrator">
-            <div class="compare-title">
-              <span>Ground Demonstrator</span>
-              <span class="compare-badge">ACTIVE IMPLEMENTATION</span>
-            </div>
-            <ul class="compare-list">
-              <li>Stationary testbed mounting pan-tilt gimbal and pneumatic net ejectors</li>
-              <li>Compensates for 1-G terrestrial gravity in the ballistic trajectory solver</li>
-              <li>Tests physical debris mockups of varying density and geometry in a capture cage</li>
-              <li>Zero risk to operational space assets, rapid iterative firmware cycles</li>
-              <li>Empirically measures net aperture, flight time, and miss-distance error</li>
-            </ul>
-          </div>
-
-          <div class="compare-card">
-            <div class="compare-title">
-              <span>Orbital Concept</span>
-              <span class="compare-badge">FUTURE MISSION TARGET</span>
-            </div>
-            <ul class="compare-list">
-              <li>Free-flying spacecraft bus operating in microgravity environment</li>
-              <li>Zero-G parabolic trajectory calculations without aerodynamic drag</li>
-              <li>RCS thruster translation for rendezvous and proximity operations (RPO)</li>
-              <li>Radiation-hardened avionics, space-qualified solar power generation</li>
-              <li>De-orbits captured debris via controlled atmospheric re-entry burn</li>
-            </ul>
-          </div>
-        </div>
-
-        <!-- Measured Results Placeholder Cards -->
-        <div style="margin-top: 36px;">
-          <div class="section-tag">BENCHMARK METRICS</div>
-          <div class="results-row">
-            <div class="placeholder-card">
-              <div class="placeholder-bracket">[ % ]</div>
-              <div class="placeholder-title">Detection Accuracy</div>
-              <div class="placeholder-sub">Held-out test split evaluation mAP across 11 debris taxonomy classes</div>
-            </div>
-            <div class="placeholder-card">
-              <div class="placeholder-bracket">[ m ]</div>
-              <div class="placeholder-title">Deployment Distance</div>
-              <div class="placeholder-sub">Verified kinematic intercept distance between launcher and target</div>
-            </div>
-            <div class="placeholder-card">
-              <div class="placeholder-bracket">[ n / N ]</div>
-              <div class="placeholder-title">Capture Success</div>
-              <div class="placeholder-sub">Ratio of confirmed tethered-net captures across standardized test trials</div>
-            </div>
-          </div>
-          <p style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 10px; text-align: center;">
-            Metrics update from empirical trial logs recorded in SQLite database during test runs.
-          </p>
-        </div>
-
-      </div>
-    </section>
-
-    <!-- Section 7: Subsystems & CTA -->
-    <section class="page-section" id="section-7" data-index="7">
-      <div class="glass-panel wide">
-        <div class="section-tag">ENGINEERING SUBSYSTEMS</div>
-        <h2 class="section-title">Interdisciplinary engineering subsystems.</h2>
-        <p class="plain-paragraph">
-          The demonstrator unites precision mechanical hardware, power electronics, deterministic embedded firmware, and real-time computer vision.
-        </p>
-
-        <div class="subsystems-grid">
-          <div class="subsystem-card">
-            <h3>Mechanical</h3>
-            <p class="plain-paragraph" style="font-size: 0.82rem;">
-              4-barrel pneumatic launcher, high-pressure accumulator manifold, motorized winch spool, carbon-fiber structural chassis, and corner slug geometry.
-            </p>
-          </div>
-          <div class="subsystem-card">
-            <h3>Electronics</h3>
-            <p class="plain-paragraph" style="font-size: 0.82rem;">
-              24V/12V dual-rail power distribution, solid-state solenoid drivers, optical encoder feedback, and isolated emergency cut-off bus.
-            </p>
-          </div>
-          <div class="subsystem-card">
-            <h3>Embedded Control</h3>
-            <p class="plain-paragraph" style="font-size: 0.82rem;">
-              Microcontroller orchestrating gimbal slewing, pressure monitoring, safety gating, and telemetry serialization at sub-millisecond loop intervals.
-            </p>
-          </div>
-          <div class="subsystem-card">
-            <h3>AI and Vision</h3>
-            <p class="plain-paragraph" style="font-size: 0.82rem;">
-              Dedicated neural detector, time-of-flight LiDAR integration, pure-NumPy 3D Kalman trajectory estimation, and quartic ballistic intercept solver.
-            </p>
-          </div>
-        </div>
-
-        <!-- Safety and Education Paragraph -->
-        <div style="margin-top: 30px; padding: 20px 24px; background: rgba(14, 23, 42, 0.5); border-left: 3px solid var(--accent-sensing); border-radius: 4px;">
-          <h4 style="font-family: var(--font-headline); font-size: 0.96rem; color: #FFFFFF; margin-bottom: 8px;">Safety, Transparency and Aerospace Education</h4>
-          <p class="plain-paragraph" style="font-size: 0.84rem; margin-bottom: 0;">
-            Debris removal involves complex orbital dynamics: unregulated impulses risk triggering catastrophic breakups under NASA-STD-8719.14C criteria (energy exceeding 40 J/g). SPACI serves as an open research and educational demonstrator to train students and aerospace researchers in autonomous computer vision, safety-interlocked GNC, and active debris removal methods before committing flight hardware.
-          </p>
-        </div>
-
-        <!-- Call to Action -->
-        <div style="margin-top: 34px;">
-          <h3 style="font-family: var(--font-headline); font-size: 1.4rem; color: #FFFFFF;">Follow the build.</h3>
-          <p class="plain-paragraph" style="font-size: 0.9rem;">
-            Explore the operational Mission Control telemetry dashboard, inspect the mathematical architecture, or contribute to the open-source software repository.
-          </p>
-          <div class="cta-actions">
-            <a href="/" class="btn-cta btn-cta-primary">LAUNCH MISSION CONTROL HUD</a>
-            <a href="#section-2" class="btn-cta btn-cta-secondary" onclick="window.scrollToSection(2); return false;">EXPLORE MACHINE 3D</a>
-            <a href="https://github.com/DeepKale16/Project_SPACI" target="_blank" rel="noopener" class="btn-cta btn-cta-secondary">GITHUB REPOSITORY &rarr;</a>
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-  </main>
-
-  <!-- Clean Footer -->
-  <footer class="landing-footer">
-    <div>
-      <strong>SPACI</strong> &mdash; Autonomous Space Debris Capture Demonstrator
-    </div>
-    <div class="footer-credits">
-      Earth textures courtesy of <a href="https://visibleearth.nasa.gov/" target="_blank" rel="noopener">NASA Visible Earth / Blue Marble</a> & Three.js community.
-    </div>
-    <div>
-      Grounded in NASA-STD-8719.14C & ESA MASTER-8
-    </div>
-  </footer>
-
-  <!-- ========================================================================
-       Three.js 3D Engine & Scroll-Driven Sequence Controller
-       ======================================================================== -->
-  <script>
-    (function() {
-      // Feature Detection: WebGL availability
-      function isWebGLAvailable() {
-        try {
-          const canvas = document.createElement('canvas');
-          return !!(window.WebGLRenderingContext && (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
-        } catch (e) {
-          return false;
-        }
-      }
-
-      if (!isWebGLAvailable()) {
-        const fb = document.getElementById('webgl-fallback');
-        if (fb) fb.style.display = 'block';
-        console.warn('WebGL is not available in this environment. Showing fallback background.');
-        return;
-      }
-
-      // ----------------------------------------------------------------------
-      // Scene, Camera, Renderer Setup
-      // ----------------------------------------------------------------------
-      const canvasEl = document.getElementById('webgl-canvas');
-      const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x05080F);
-
-      const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 1500);
-      camera.position.set(9.5, 2.2, 17.5);
-
-      const renderer = new THREE.WebGLRenderer({
-        canvas: canvasEl,
-        antialias: true,
-        powerPreference: 'high-performance',
-        alpha: false
+  function tex(url, key) {
+    loader.load(url, function(t) {
+      t.anisotropy = maxA; t.wrapS = THREE.RepeatWrapping; t.needsUpdate = true; earthMat.uniforms[key].value = t;
+    }, undefined, function() {
+      // If primary relative path fails, try alternate path
+      var altUrl = url.startsWith('/') ? url.slice(1) : ('/' + url);
+      loader.load(altUrl, function(t) {
+        t.anisotropy = maxA; t.wrapS = THREE.RepeatWrapping; t.needsUpdate = true; earthMat.uniforms[key].value = t;
+      }, undefined, function() {
+        if (key === 'tDay') earthMat.uniforms[key].value = fallbackDay();
       });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.outputEncoding = THREE.sRGBEncoding;
-      renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.15;
+    });
+  }
 
-      // ----------------------------------------------------------------------
-      // Lights
-      // ----------------------------------------------------------------------
-      // Strong warm sun
-      const sunPosition = new THREE.Vector3(70, 22, 45);
-      const sunLight = new THREE.DirectionalLight(0xFFF7EB, 2.4);
-      sunLight.position.copy(sunPosition);
-      scene.add(sunLight);
+  var vS = 'varying vec2 vUv;varying vec3 vP;varying vec3 vN;varying vec3 vV;void main(){vUv=uv;vP=position;vN=normalize(normalMatrix*normal);vec4 mv=modelViewMatrix*vec4(position,1.);vV=-mv.xyz;gl_Position=projectionMatrix*mv;}';
+  var earthMat = new THREE.ShaderMaterial({
+    uniforms: { uSun: { value: SUN }, uT: { value: 0 }, tDay: { value: blank }, tNight: { value: blank }, tWater: { value: blank } },
+    vertexShader: vS,
+    fragmentShader: 'precision highp float;uniform vec3 uSun;uniform float uT;uniform sampler2D tDay,tNight,tWater;varying vec2 vUv;varying vec3 vP;varying vec3 vN;varying vec3 vV;' + NOISE +
+    'void main(){' +
+    'vec3 N=normalize(vN);vec3 V=normalize(vV);vec3 L=normalize((viewMatrix*vec4(uSun,0.)).xyz);' +
+    'float d=dot(N,L);float day=smoothstep(-.1,.28,d);' +
+    'vec3 dc=pow(texture2D(tDay,vUv).rgb,vec3(2.2));' +
+    'float water=texture2D(tWater,vUv).r;' +
+    'vec3 lit=dc*(max(d,0.)*1.9+.012);' +
+    'vec3 H=normalize(L+V);float sp=pow(max(dot(N,H),0.),140.)*water*day;float sp2=pow(max(dot(N,H),0.),18.)*water*day*.12;' +
+    'lit+=vec3(1.,.93,.82)*(sp*1.3+sp2);' +
+    'float tw=smoothstep(.0,.22,d)*smoothstep(.45,.12,d);lit+=vec3(1.,.42,.16)*tw*.05*dc;' +
+    'vec3 nl=pow(texture2D(tNight,vUv).rgb,vec3(2.2));float nm=smoothstep(.06,-.14,d);lit+=nl*nm*3.1;' +
+    'float rim=pow(1.-max(dot(N,V),0.),3.2);lit+=vec3(.12,.32,.8)*rim*(.12+.85*day);' +
+    'gl_FragColor=vec4(pow(lit,vec3(1./2.2)),1.);}'
+  });
 
-      // Blue Earthshine fill from below
-      const earthshineLight = new THREE.DirectionalLight(0x38BDF8, 0.45);
-      earthshineLight.position.set(-20, -35, -15);
-      scene.add(earthshineLight);
+  var assetPrefix = (window.location.protocol === 'file:') ? 'assets/' : '/assets/';
+  tex(assetPrefix + 'earth_day.jpg', 'tDay');
+  tex(assetPrefix + 'earth_night.jpg', 'tNight');
+  tex(assetPrefix + 'earth_water.png', 'tWater');
 
-      // Cool rim light from behind
-      const rimLight = new THREE.DirectionalLight(0x7FD1FF, 0.55);
-      rimLight.position.set(-45, 15, -40);
-      scene.add(rimLight);
+  var earth = new THREE.Mesh(new THREE.SphereGeometry(1, 128, 96), earthMat);
+  earth.rotation.y = Math.PI;
+  scene.add(earth);
 
-      // Low ambient light for dark space contrast
-      const ambientLight = new THREE.AmbientLight(0x060B18, 0.35);
-      scene.add(ambientLight);
+  /* Cloud layer with its own lighting, drifting over the surface */
+  var cloudMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, uniforms: { uSun: { value: SUN }, uT: { value: 0 } },
+    vertexShader: vS,
+    fragmentShader: 'precision highp float;uniform vec3 uSun;uniform float uT;varying vec2 vUv;varying vec3 vP;varying vec3 vN;varying vec3 vV;' + NOISE +
+    'void main(){vec3 p=normalize(vP);float c=fbm(p*3.4+vec3(uT*.006,0.,uT*.004));c=c*.65+.35*fbm(p*9.+vec3(3.,uT*.01,1.));' +
+    'float a=smoothstep(.5,.74,c)*(1.-smoothstep(.9,.99,abs(p.y)*1.02));' +
+    'vec3 N=normalize(vN);vec3 L=normalize((viewMatrix*vec4(uSun,0.)).xyz);float d=dot(N,L);' +
+    'float lt=max(d,0.)*1.7+.01;vec3 col=vec3(.95,.97,1.)*lt;col+=vec3(1.,.45,.2)*smoothstep(.0,.2,d)*smoothstep(.4,.1,d)*.06;' +
+    'gl_FragColor=vec4(pow(col,vec3(1./2.2)),a*.82);}'
+  });
+  var clouds = new THREE.Mesh(new THREE.SphereGeometry(1.011, 96, 64), cloudMat);
+  scene.add(clouds);
 
-      // ----------------------------------------------------------------------
-      // Reflection Environment (PMREMGenerator from Painted Canvas Sky)
-      // ----------------------------------------------------------------------
-      (function buildEnvironmentMap() {
-        const envCanvas = document.createElement('canvas');
-        envCanvas.width = 1024;
-        envCanvas.height = 512;
-        const ctx = envCanvas.getContext('2d');
+  /* Atmosphere: blue Rayleigh haze that warms toward the terminator */
+  var atmo = new THREE.Mesh(new THREE.SphereGeometry(1.085, 96, 64), new THREE.ShaderMaterial({
+    transparent: true, side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false, uniforms: { uSun: { value: SUN } },
+    vertexShader: 'varying vec3 vN;varying vec3 vV;varying vec3 vW;void main(){vN=normalize(normalMatrix*normal);vec4 mv=modelViewMatrix*vec4(position,1.);vV=-mv.xyz;vW=normalize(position);gl_Position=projectionMatrix*mv;}',
+    fragmentShader: 'uniform vec3 uSun;varying vec3 vN;varying vec3 vV;varying vec3 vW;void main(){float d=abs(dot(normalize(vN),normalize(vV)));float i=pow(clamp(d/.36,0.,1.),2.2)*(1.-smoothstep(.36,.9,d));' +
+    'float s=dot(vW,normalize(uSun));float lit=smoothstep(-.35,.4,s);vec3 c=mix(vec3(.08,.2,.5),vec3(.28,.58,1.),lit);c=mix(c,vec3(1.,.5,.25),smoothstep(.3,-.05,abs(s))*.45*lit);gl_FragColor=vec4(c*i*1.25*(.25+.75*lit),1.);}'
+  }));
+  scene.add(atmo);
 
-        // Dark celestial gradient
-        const bgGrad = ctx.createLinearGradient(0, 0, 0, 512);
-        bgGrad.addColorStop(0, '#02050e');
-        bgGrad.addColorStop(0.35, '#070f26');
-        bgGrad.addColorStop(0.5, '#050a18');
-        bgGrad.addColorStop(0.8, '#0a1630');
-        bgGrad.addColorStop(1, '#02040a');
-        ctx.fillStyle = bgGrad;
-        ctx.fillRect(0, 0, 1024, 512);
+  /* Sun glare for when the camera looks toward it */
+  var sunSpr;
+  (function() {
+    var c = document.createElement('canvas'); c.width = c.height = 256; var x = c.getContext('2d'), g = x.createRadialGradient(128, 128, 0, 128, 128, 128);
+    g.addColorStop(0, 'rgba(255,250,235,1)'); g.addColorStop(0.06, 'rgba(255,240,210,.9)'); g.addColorStop(0.2, 'rgba(255,200,140,.28)'); g.addColorStop(1, 'rgba(255,170,90,0)');
+    x.fillStyle = g; x.fillRect(0, 0, 256, 256);
+    sunSpr = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false }));
+    sunSpr.scale.set(26, 26, 1); sunSpr.position.copy(SUN).multiplyScalar(70); scene.add(sunSpr);
+  })();
 
-        // Sun reflection glare
-        const sunGrad = ctx.createRadialGradient(280, 180, 0, 280, 180, 180);
-        sunGrad.addColorStop(0, 'rgba(255, 246, 225, 0.95)');
-        sunGrad.addColorStop(0.2, 'rgba(255, 195, 110, 0.35)');
-        sunGrad.addColorStop(0.5, 'rgba(127, 209, 255, 0.1)');
-        sunGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = sunGrad;
-        ctx.fillRect(0, 0, 1024, 512);
+  window.__spaci = { scene: scene, camera: camera, renderer: renderer, earth: earth, earthMat: earthMat, cloudMat: cloudMat, clouds: clouds, reduce: reduce, THREE: THREE, SUN: SUN, sr: sr, sunSpr: sunSpr, orbits: [], meshes: [], trackable: [] };
+})();
+</script>
+<script>
+(function() {
+  var S0 = window.__spaci; if (!S0) return;
+  var THREE = S0.THREE, scene = S0.scene, sr = S0.sr;
 
-        // Earthshine bounce in lower hemisphere
-        const earthGrad = ctx.createRadialGradient(720, 360, 0, 720, 360, 220);
-        earthGrad.addColorStop(0, 'rgba(56, 189, 248, 0.45)');
-        earthGrad.addColorStop(0.4, 'rgba(14, 116, 200, 0.15)');
-        earthGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = earthGrad;
-        ctx.fillRect(0, 0, 1024, 512);
+  /* Shared materials */
+  function panelTex() {
+    var c = document.createElement('canvas'); c.width = 256; c.height = 128; var x = c.getContext('2d');
+    x.fillStyle = '#0b1a3a'; x.fillRect(0, 0, 256, 128);
+    for (var i = 0; i < 8; i++) for (var j = 0; j < 4; j++) {
+      var g = x.createLinearGradient(i * 32, j * 32, i * 32 + 32, j * 32 + 32);
+      g.addColorStop(0, '#1b3b78'); g.addColorStop(1, '#0c1f4a');
+      x.fillStyle = g; x.fillRect(i * 32 + 2, j * 32 + 2, 28, 28);
+    }
+    x.strokeStyle = 'rgba(190,205,230,.55)'; x.lineWidth = 1;
+    for (i = 0; i <= 8; i++) { x.beginPath(); x.moveTo(i * 32, 0); x.lineTo(i * 32, 128); x.stroke(); }
+    for (j = 0; j <= 4; j++) { x.beginPath(); x.moveTo(0, j * 32); x.lineTo(256, j * 32); x.stroke(); }
+    var t = new THREE.CanvasTexture(c); t.anisotropy = 4; return t;
+  }
+  var PT = panelTex();
+  var M = {
+    gold: new THREE.MeshStandardMaterial({ color: 0xd8a844, metalness: 0.75, roughness: 0.38 }),
+    alu: new THREE.MeshStandardMaterial({ color: 0xc6ced9, metalness: 0.7, roughness: 0.4 }),
+    white: new THREE.MeshStandardMaterial({ color: 0xe6e6de, metalness: 0.1, roughness: 0.55 }),
+    dark: new THREE.MeshStandardMaterial({ color: 0x39414f, metalness: 0.5, roughness: 0.5 }),
+    panel: new THREE.MeshStandardMaterial({ map: PT, color: 0xffffff, metalness: 0.4, roughness: 0.4, side: THREE.DoubleSide }),
+    rust: new THREE.MeshStandardMaterial({ color: 0x8a7e70, metalness: 0.4, roughness: 0.72, flatShading: true })
+  };
+  S0.M = M; S0.panelTex = PT;
 
-        const envTexture = new THREE.CanvasTexture(envCanvas);
-        envTexture.mapping = THREE.EquirectangularReflectionMapping;
+  /* Debris models in realistic proportions */
+  function shard(sc, mat) {
+    var g = new THREE.IcosahedronGeometry(sc, 1), p = g.attributes.position;
+    for (var i = 0; i < p.count; i++) {
+      var k = 0.7 + 0.6 * Math.abs(Math.sin(i * 12.9898 + sc * 78.233));
+      p.setXYZ(i, p.getX(i) * k * (1.3 - 0.5 * Math.sin(i)), p.getY(i) * k * 0.55, p.getZ(i) * k);
+    }
+    g.computeVertexNormals(); return new THREE.Mesh(g, mat);
+  }
+  function deadSat(sc) {
+    var g = new THREE.Group();
+    var b = new THREE.Mesh(new THREE.BoxGeometry(sc * 1.1, sc * 1.1, sc * 1.6), M.gold); g.add(b);
+    var pa = new THREE.Mesh(new THREE.BoxGeometry(sc * 3.2, sc * 0.05, sc * 1.2), M.panel); pa.position.x = sc * 2.3; g.add(pa);
+    var pb = pa.clone(); pb.position.x = -sc * 2.3; pb.rotation.z = 0.25; g.add(pb);
+    var tr = new THREE.Mesh(new THREE.CylinderGeometry(sc * 0.04, sc * 0.04, sc * 1.4, 6), M.alu); tr.rotation.z = Math.PI / 2; g.add(tr);
+    var dh = new THREE.Mesh(new THREE.SphereGeometry(sc * 0.45, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), M.white); dh.position.set(0, sc * 0.9, sc * 0.2); dh.rotation.x = -0.4; g.add(dh);
+    return g;
+  }
+  function rocketBody(sc) {
+    var g = new THREE.Group();
+    var c = new THREE.Mesh(new THREE.CylinderGeometry(sc * 0.42, sc * 0.42, sc * 3, 18), M.white); g.add(c);
+    var band = new THREE.Mesh(new THREE.CylinderGeometry(sc * 0.435, sc * 0.435, sc * 0.35, 18), M.dark); band.position.y = sc * 0.7; g.add(band);
+    var band2 = band.clone(); band2.position.y = -sc * 0.9; g.add(band2);
+    var n = new THREE.Mesh(new THREE.CylinderGeometry(sc * 0.2, sc * 0.38, sc * 0.7, 14, 1, true), M.dark); n.position.y = -sc * 1.85; g.add(n);
+    var cap = new THREE.Mesh(new THREE.SphereGeometry(sc * 0.42, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), M.white); cap.position.y = sc * 1.5; g.add(cap);
+    return g;
+  }
+  function panelFrag(sc) {
+    var m = new THREE.Mesh(new THREE.BoxGeometry(sc * 2.4, sc * 0.04, sc * 1.5), M.panel); m.rotation.set(0.3, 0.2, 0.5); return m;
+  }
+  function foil(sc) {
+    var g = new THREE.PlaneGeometry(sc * 1.8, sc * 1.3, 6, 5), p = g.attributes.position;
+    for (var i = 0; i < p.count; i++) p.setZ(i, Math.sin(p.getX(i) * 9 + i) * sc * 0.12 + Math.cos(p.getY(i) * 8) * sc * 0.1);
+    g.computeVertexNormals();
+    return new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0xd0a444, metalness: 1, roughness: 0.28, side: THREE.DoubleSide }));
+  }
+  function make(kind, sc) {
+    if (kind === 0) return deadSat(sc);
+    if (kind === 1) return rocketBody(sc);
+    if (kind === 2) return panelFrag(sc);
+    if (kind === 3) return foil(sc);
+    return shard(sc, M.rust);
+  }
+  S0.makeDebris = make;
 
-        const pmrem = new THREE.PMREMGenerator(renderer);
-        pmrem.compileEquirectangularShader();
-        const envMap = pmrem.fromEquirectangular(envTexture).texture;
-        scene.environment = envMap;
+  /* Fine debris dust: dim, grey-white, restrained realism */
+  var pointsMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    uniforms: { uScale: { value: 600 } },
+    vertexShader: 'attribute float aS;attribute vec3 aC;varying vec3 vC;uniform float uScale;void main(){vC=aC;vec4 mv=modelViewMatrix*vec4(position,1.);gl_PointSize=clamp(aS*uScale/-mv.z,1.,6.);gl_Position=projectionMatrix*mv;}',
+    fragmentShader: 'varying vec3 vC;void main(){float d=length(gl_PointCoord-.5);if(d>.5)discard;float a=smoothstep(.5,.15,d)*.75;gl_FragColor=vec4(vC*a,a);}'
+  });
+  S0.pointsMat = pointsMat;
 
-        envTexture.dispose();
-        pmrem.dispose();
-      })();
+  function ringLine(r, op) {
+    var pts = [];
+    for (var i = 0; i <= 200; i++) {
+      var a = i / 200 * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r));
+    }
+    return new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x8fb8e0, transparent: true, opacity: op, depthWrite: false }));
+  }
 
-      // ----------------------------------------------------------------------
-      // Sun Glare Sprite
-      // ----------------------------------------------------------------------
-      (function buildSunSprite() {
-        const glareCanvas = document.createElement('canvas');
-        glareCanvas.width = 128;
-        glareCanvas.height = 128;
-        const ctx = glareCanvas.getContext('2d');
-        const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-        g.addColorStop(0, 'rgba(255, 252, 242, 1)');
-        g.addColorStop(0.18, 'rgba(255, 220, 140, 0.7)');
-        g.addColorStop(0.45, 'rgba(127, 209, 255, 0.25)');
-        g.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = g;
-        ctx.fillRect(0, 0, 128, 128);
+  var defs = [
+    { tx: 0.15, tz: 0.1, sp: 0.05, r: 1.2, w: 0.05, n: 900 },
+    { tx: 1.1, tz: 0.5, sp: -0.036, r: 1.3, w: 0.06, n: 1000 },
+    { tx: 0.5, tz: -0.9, sp: 0.03, r: 1.42, w: 0.08, n: 1100 },
+    { tx: -0.8, tz: 0.4, sp: -0.025, r: 1.56, w: 0.09, n: 1000 },
+    { tx: 1.45, tz: -0.3, sp: 0.02, r: 1.72, w: 0.11, n: 900 },
+    { tx: 0.1, tz: 1.2, sp: -0.016, r: 1.98, w: 0.13, n: 800 },
+    { tx: 0.0, tz: 0.0, sp: 0.011, r: 2.7, w: 0.04, n: 700 }
+  ];
+  var total = 0;
+  defs.forEach(function(d, k) {
+    var g = new THREE.Group(); g.rotation.x = d.tx; g.rotation.z = d.tz;
+    var inner = new THREE.Group(); g.add(inner);
+    var n = d.n, pos = new Float32Array(n * 3), sz = new Float32Array(n), cc = new Float32Array(n * 3);
+    for (var i = 0; i < n; i++) {
+      var a = sr() * Math.PI * 2, rr = d.r + (sr() - 0.5) * d.w * 2, y = (sr() - 0.5) * d.w * 0.8;
+      pos[i * 3] = Math.cos(a) * rr; pos[i * 3 + 1] = y; pos[i * 3 + 2] = Math.sin(a) * rr;
+      sz[i] = 0.008 + sr() * sr() * 0.022; var w = sr();
+      cc[i * 3] = 0.78 + 0.2 * w; cc[i * 3 + 1] = 0.8 + 0.12 * w; cc[i * 3 + 2] = 0.86;
+    }
+    var geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('aS', new THREE.BufferAttribute(sz, 1)); geo.setAttribute('aC', new THREE.BufferAttribute(cc, 3));
+    inner.add(new THREE.Points(geo, pointsMat));
+    inner.add(ringLine(d.r, k === 6 ? 0.1 : 0.07));
+    total += n;
+    var m = k === 6 ? 4 : 8;
+    for (var j = 0; j < m; j++) {
+      var kind = Math.floor(sr() * 5), sc = 0.007 + sr() * 0.007;
+      var me = make(kind, sc), a2 = sr() * Math.PI * 2;
+      me.position.set(Math.cos(a2) * d.r, (sr() - 0.5) * d.w * 0.5, Math.sin(a2) * d.r);
+      me.rotation.set(sr() * 6, sr() * 6, sr() * 6);
+      me.userData.spin = new THREE.Vector3(sr() - 0.5, sr() - 0.5, sr() - 0.5).multiplyScalar(0.9);
+      me.userData.kind = ['Defunct satellite', 'Rocket body', 'Panel fragment', 'Insulation foil', 'Fragment'][kind];
+      inner.add(me); S0.meshes.push(me); total++;
+      if (k < 5) S0.trackable.push(me);
+    }
+    scene.add(g); S0.orbits.push({ inner: inner, sp: d.sp });
+  });
+  var hObj = document.getElementById('hObj');
+  if (hObj) hObj.textContent = total.toLocaleString('en-US');
+})();
+</script>
+<script>
+(function() {
+  var S0 = window.__spaci; if (!S0) return;
+  var THREE = S0.THREE, scene = S0.scene, M = S0.M;
+  var V = function(x, y, z) { return new THREE.Vector3(x, y, z); };
 
-        const glareTex = new THREE.CanvasTexture(glareCanvas);
-        const glareMat = new THREE.SpriteMaterial({
-          map: glareTex,
-          transparent: true,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false
-        });
-        const sunSprite = new THREE.Sprite(glareMat);
-        sunSprite.position.copy(sunPosition);
-        sunSprite.scale.set(38, 38, 1);
-        scene.add(sunSprite);
-      })();
+  /* Orbital Geometry: Capture machine in orbit and one target piece ahead of it */
+  var lat = 18 * Math.PI / 180, lon = -8 * Math.PI / 180;
+  var S = V(Math.cos(lat) * Math.sin(lon), Math.sin(lat), Math.cos(lat) * Math.cos(lon)).normalize();
+  var Tn = new THREE.Vector3().crossVectors(V(0, 1, 0), S).normalize();
+  var Up = new THREE.Vector3().crossVectors(S, Tn).normalize();
+  var stationP = S.clone().multiplyScalar(1.34);
+  var P = stationP.clone().add(Tn.clone().multiplyScalar(0.6)).add(Up.clone().multiplyScalar(0.05));
+  var dirST = P.clone().sub(stationP); var len = dirST.length(); dirST.normalize();
 
-      // ----------------------------------------------------------------------
-      // 4,000 Starfield with Colour Variety
-      // ----------------------------------------------------------------------
-      (function buildStarfield() {
-        const starCount = 4000;
-        const geom = new THREE.BufferGeometry();
-        const positions = new Float32Array(starCount * 3);
-        const colors = new Float32Array(starCount * 3);
+  /* Fill lights so shadowed hardware stays readable */
+  var fillE = new THREE.DirectionalLight(0x78a8ff, 1.1); fillE.position.copy(S).multiplyScalar(-8); scene.add(fillE);
+  scene.add(new THREE.AmbientLight(0x9fb2d6, 0.3));
+  var rimL = new THREE.DirectionalLight(0xbcd4ff, 0.9); rimL.position.copy(S).multiplyScalar(6).add(new THREE.Vector3(-3, 4, -2)); scene.add(rimL);
 
-        const colorPalette = [
-          new THREE.Color(0xF8FAFC), // Pure white
-          new THREE.Color(0xBAE6FD), // Cool blue-white
-          new THREE.Color(0x7FD1FF), // Ice blue
-          new THREE.Color(0xFDE68A), // Warm yellow-white
-          new THREE.Color(0xFFB454)  // Amber star
-        ];
-
-        for (let i = 0; i < starCount; i++) {
-          const r = 450 + Math.random() * 200;
-          const theta = Math.random() * Math.PI * 2;
-          const phi = Math.acos((Math.random() * 2) - 1);
-
-          positions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
-          positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-          positions[i * 3 + 2] = r * Math.cos(phi);
-
-          const c = colorPalette[Math.floor(Math.random() * colorPalette.length)];
-          const brightness = 0.5 + Math.random() * 0.5;
-          colors[i * 3]     = c.r * brightness;
-          colors[i * 3 + 1] = c.g * brightness;
-          colors[i * 3 + 2] = c.b * brightness;
-        }
-
-        geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-        const mat = new THREE.PointsMaterial({
-          size: 1.6,
-          vertexColors: true,
-          transparent: true,
-          opacity: 0.9,
-          depthWrite: false
-        });
-
-        const starPoints = new THREE.Points(geom, mat);
-        scene.add(starPoints);
-      })();
-
-      // ----------------------------------------------------------------------
-      // Tiny Procedural Fallback Earth Textures (Guarantee zero black/broken renders)
-      // ----------------------------------------------------------------------
-      function generateFallbackEarthCanvas(type) {
-        const c = document.createElement('canvas');
-        c.width = 512;
-        c.height = 256;
-        const ctx = c.getContext('2d');
-
-        if (type === 'day') {
-          // Oceans
-          const oGrad = ctx.createLinearGradient(0, 0, 0, 256);
-          oGrad.addColorStop(0, '#0F2648');
-          oGrad.addColorStop(0.5, '#0B1D38');
-          oGrad.addColorStop(1, '#08172E');
-          ctx.fillStyle = oGrad;
-          ctx.fillRect(0, 0, 512, 256);
-
-          // Continental silhouettes (Eurasia, India centered around x=360, Africa, Americas)
-          ctx.fillStyle = '#22503A';
-          // Eurasia & India
-          ctx.beginPath();
-          ctx.ellipse(360, 90, 80, 45, 0, 0, Math.PI * 2);
-          ctx.fill();
-          // Indian subcontinent peninsula
-          ctx.fillStyle = '#65532F';
-          ctx.beginPath();
-          ctx.moveTo(350, 100);
-          ctx.lineTo(375, 100);
-          ctx.lineTo(362, 145);
-          ctx.closePath();
-          ctx.fill();
-          // Africa
-          ctx.fillStyle = '#554228';
-          ctx.beginPath();
-          ctx.ellipse(280, 140, 45, 60, 0, 0, Math.PI * 2);
-          ctx.fill();
-          // Americas
-          ctx.fillStyle = '#264B34';
-          ctx.beginPath();
-          ctx.ellipse(140, 95, 40, 50, -0.3, 0, Math.PI * 2);
-          ctx.ellipse(170, 180, 35, 55, 0.4, 0, Math.PI * 2);
-          ctx.fill();
-          // Polar Ice
-          ctx.fillStyle = '#E2E8F0';
-          ctx.fillRect(0, 0, 512, 18);
-          ctx.fillRect(0, 238, 512, 18);
-        } else if (type === 'night') {
-          // Night Side: Deep black with warm golden city lights
-          ctx.fillStyle = '#020408';
-          ctx.fillRect(0, 0, 512, 256);
-          ctx.fillStyle = '#FFB454';
-          // Urban clusters (India, Europe, East Asia, Americas)
-          const cities = [
-            [362, 120, 25], [370, 110, 20], [355, 130, 18], // India
-            [280, 85, 30], [290, 75, 25],                   // Europe
-            [410, 105, 35], [425, 95, 30],                   // East Asia
-            [140, 90, 30], [150, 100, 25]                    // Americas
-          ];
-          cities.forEach(([cx, cy, count]) => {
-            for (let i = 0; i < count; i++) {
-              const ox = cx + (Math.random() - 0.5) * 28;
-              const oy = cy + (Math.random() - 0.5) * 22;
-              const rad = 0.6 + Math.random() * 1.4;
-              ctx.beginPath();
-              ctx.arc(ox, oy, rad, 0, Math.PI * 2);
-              ctx.fill();
-            }
-          });
-        } else if (type === 'specular') {
-          // Specular: Oceans = White (1.0), Land = Black (0.0)
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fillRect(0, 0, 512, 256);
-          ctx.fillStyle = '#000000';
-          ctx.beginPath();
-          ctx.ellipse(360, 90, 80, 45, 0, 0, Math.PI * 2);
-          ctx.ellipse(280, 140, 45, 60, 0, 0, Math.PI * 2);
-          ctx.ellipse(140, 95, 40, 50, -0.3, 0, Math.PI * 2);
-          ctx.ellipse(170, 180, 35, 55, 0.4, 0, Math.PI * 2);
-          ctx.fill();
-        }
-
-        const tex = new THREE.CanvasTexture(c);
-        tex.wrapS = THREE.RepeatWrapping;
-        tex.wrapT = THREE.ClampToEdgeWrapping;
-        return tex;
+  /* Reflection environment: painted sky with deep space, the sun, and bright Earth bounce */
+  (function() {
+    var W = 512, H = 256, c = document.createElement('canvas'); c.width = W; c.height = H;
+    var cx = c.getContext('2d'), id = cx.createImageData(W, H), d = id.data, sun = S0.SUN, ea = S.clone().negate();
+    for (var j = 0; j < H; j++) {
+      for (var i = 0; i < W; i++) {
+        var ph = (i / W - 0.5) * Math.PI * 2, th = (0.5 - j / H) * Math.PI, ct = Math.cos(th);
+        var dx = ct * Math.cos(ph), dy = Math.sin(th), dz = ct * Math.sin(ph);
+        var s = Math.max(dx * sun.x + dy * sun.y + dz * sun.z, 0), e = Math.max(dx * ea.x + dy * ea.y + dz * ea.z, 0);
+        var R = 0.05 + (Math.pow(s, 60) * 1.0 + Math.pow(s, 5) * 0.22) * 1.0 + Math.pow(e, 1.4) * 0.1 * 1.2 + Math.pow(e, 9) * 0.25;
+        var G = 0.07 + (Math.pow(s, 60) * 0.95 + Math.pow(s, 5) * 0.2) + Math.pow(e, 1.4) * 0.28 * 1.2 + Math.pow(e, 9) * 0.4;
+        var B = 0.12 + (Math.pow(s, 60) * 0.85 + Math.pow(s, 5) * 0.18) + Math.pow(e, 1.4) * 0.6 * 1.2 + Math.pow(e, 9) * 0.6;
+        var k = (j * W + i) * 4;
+        d[k] = Math.min(255, R * 255); d[k + 1] = Math.min(255, G * 255); d[k + 2] = Math.min(255, B * 255); d[k + 3] = 255;
       }
+    }
+    cx.putImageData(id, 0, 0);
+    var tx = new THREE.CanvasTexture(c); tx.encoding = THREE.sRGBEncoding; tx.needsUpdate = true;
+    var pm = new THREE.PMREMGenerator(S0.renderer); scene.environment = pm.fromEquirectangular(tx).texture; pm.dispose();
+    Object.keys(M).forEach(function(k) { M[k].envMapIntensity = 1.15; });
+  })();
 
-      // Initialize default fallback textures
-      const fallbackDayTex = generateFallbackEarthCanvas('day');
-      const fallbackNightTex = generateFallbackEarthCanvas('night');
-      const fallbackSpecTex = generateFallbackEarthCanvas('specular');
+  /* The capture machine (+z axis faces target) */
+  var st = new THREE.Group(); st.position.copy(stationP); scene.add(st); st.lookAt(P);
+  var anchors = {};
+  function anchor(name, x, y, z, parent) { var o = new THREE.Object3D(); o.position.set(x, y, z); (parent || st).add(o); anchors[name] = o; return o; }
+  function add(geo, mat, x, y, z, parent) { var m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); (parent || st).add(m); return m; }
+  var glowAm = new THREE.MeshBasicMaterial({ color: 0xffb454 }), glowCy = new THREE.MeshBasicMaterial({ color: 0x7fd1ff });
+  var lens = new THREE.MeshStandardMaterial({ color: 0x05080f, metalness: 1, roughness: 0.08 });
 
-      // ----------------------------------------------------------------------
-      // Earth Custom Shader (Terminator, City Lights, Ocean Glint, Rim Glow)
-      // ----------------------------------------------------------------------
-      const earthRadius = 7.0;
-      const earthGroup = new THREE.Group();
-      earthGroup.position.set(4.2, 0.0, -2.5);
-      // Axial tilt + Rotate globe so India faces camera
-      earthGroup.rotation.x = 0.28;
-      earthGroup.rotation.y = -Math.PI * 0.46; // India faces directly along -z toward camera view
-      scene.add(earthGroup);
+  add(new THREE.BoxGeometry(0.05, 0.05, 0.09), M.gold, 0, 0, 0);
+  add(new THREE.BoxGeometry(0.052, 0.006, 0.092), M.dark, 0, 0.027, 0);
+  add(new THREE.BoxGeometry(0.052, 0.006, 0.092), M.dark, 0, -0.027, 0);
+  
+  /* Four pneumatic ejector tubes on front face with amber muzzles */
+  [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function(c) {
+    var tube = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0065, 0.03, 14), M.dark); tube.rotation.x = Math.PI / 2; tube.position.set(c[0] * 0.021, c[1] * 0.021, 0.058); st.add(tube);
+    var rim = new THREE.Mesh(new THREE.TorusGeometry(0.0058, 0.0009, 6, 16), glowAm); rim.position.set(c[0] * 0.021, c[1] * 0.021, 0.073); st.add(rim);
+  });
+  add(new THREE.BoxGeometry(0.02, 0.02, 0.012), M.alu, 0, 0, 0.05);
+  anchor('ej', 0, -0.021, 0.075);
 
-      const earthUniforms = {
-        uSunDir: { value: sunPosition.clone().normalize() },
-        dayMap: { value: fallbackDayTex },
-        nightMap: { value: fallbackNightTex },
-        specularMap: { value: fallbackSpecTex },
-        uAtmosphereColor: { value: new THREE.Color(0x7FD1FF) },
-        uTerminatorColor: { value: new THREE.Color(0xFF9E4A) }
-      };
+  /* Pan-tilt sensor head: gimbal base, yoke, LiDAR and two cameras */
+  var gim = add(new THREE.CylinderGeometry(0.013, 0.015, 0.01, 18), M.alu, 0, 0.032, 0.015);
+  var head = new THREE.Group(); head.position.set(0, 0.045, 0.015); st.add(head);
+  add(new THREE.BoxGeometry(0.034, 0.008, 0.02), M.dark, 0, -0.006, 0, head);
+  var lid = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.026, 20), M.alu); lid.rotation.x = Math.PI / 2; lid.position.set(0, 0.008, 0.01); head.add(lid);
+  add(new THREE.CircleGeometry(0.0095, 20), glowCy, 0, 0.008, 0.0233, head);
+  [-1, 1].forEach(function(s) {
+    add(new THREE.BoxGeometry(0.011, 0.011, 0.014), M.dark, s * 0.017, 0.006, 0.012, head);
+    var l = new THREE.Mesh(new THREE.CircleGeometry(0.0033, 12), lens); l.position.set(s * 0.017, 0.006, 0.0195); head.add(l);
+  });
+  anchor('lidar', 0, 0.008, 0.022, head); anchor('cam', 0.017, 0.006, 0.02, head); anchor('gim', 0, 0.032, 0.015);
 
-      const earthVertexShader = `
-        varying vec2 vUv;
-        varying vec3 vNormalWorld;
-        varying vec3 vPosWorld;
+  /* Winch drum and tether guide at the rear */
+  var drum = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.03, 20), M.alu); drum.rotation.z = Math.PI / 2; drum.position.set(0, -0.004, -0.06); st.add(drum);
+  add(new THREE.CylinderGeometry(0.016, 0.016, 0.004, 20), M.dark, 0.016, -0.004, -0.06).rotation.z = Math.PI / 2;
+  add(new THREE.CylinderGeometry(0.016, 0.016, 0.004, 20), M.dark, -0.016, -0.004, -0.06).rotation.z = Math.PI / 2;
+  anchor('winch', 0, -0.004, -0.062);
 
-        void main() {
-          vUv = uv;
-          vec4 worldPos = modelMatrix * vec4(position, 1.0);
-          vPosWorld = worldPos.xyz;
-          vNormalWorld = normalize(mat3(modelMatrix) * normal);
-          gl_Position = projectionMatrix * viewMatrix * worldPos;
-        }
-      `;
+  /* Antenna dish and thrusters */
+  add(new THREE.CylinderGeometry(0.002, 0.002, 0.03, 6), M.alu, -0.015, 0.04, -0.03);
+  var dish = add(new THREE.SphereGeometry(0.02, 18, 8, 0, Math.PI * 2, 0, Math.PI / 2), M.white, -0.015, 0.057, -0.03); dish.rotation.x = -0.5; dish.scale.y = 0.45;
+  [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function(c) {
+    var th = new THREE.Mesh(new THREE.ConeGeometry(0.005, 0.01, 10, 1, true), M.dark); th.rotation.x = -Math.PI / 2; th.position.set(c[0] * 0.024, c[1] * 0.024, -0.05); st.add(th);
+  });
 
-      const earthFragmentShader = `
-        uniform vec3 uSunDir;
-        uniform sampler2D dayMap;
-        uniform sampler2D nightMap;
-        uniform sampler2D specularMap;
-        uniform vec3 uAtmosphereColor;
-        uniform vec3 uTerminatorColor;
+  /* Solar arrays: boom plus three panel segments each side */
+  [-1, 1].forEach(function(s) {
+    var boom = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.002, 0.06, 6), M.alu); boom.rotation.z = Math.PI / 2; boom.position.set(s * 0.055, 0, 0); st.add(boom);
+    for (var i = 0; i < 3; i++) {
+      var p = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.0018, 0.058), M.panel); p.position.set(s * (0.1 + i * 0.077), 0, 0); st.add(p);
+    }
+  });
+  var lamp = add(new THREE.SphereGeometry(0.0028, 10, 8), glowAm, 0.021, 0.0275, -0.04);
 
-        varying vec2 vUv;
-        varying vec3 vNormalWorld;
-        varying vec3 vPosWorld;
+  /* The target: a defunct satellite tumbling slowly */
+  var tg = new THREE.Group(); tg.position.copy(P); scene.add(tg);
+  var tmodel = S0.makeDebris(0, 0.016); tg.add(tmodel);
+  var hal = new THREE.Mesh(new THREE.SphereGeometry(0.075, 24, 16), new THREE.MeshBasicMaterial({ color: 0xffb454, transparent: true, opacity: 0.07, depthWrite: false, blending: THREE.AdditiveBlending })); tg.add(hal);
 
-        void main() {
-          vec3 N = normalize(vNormalWorld);
-          vec3 L = normalize(uSunDir);
-          vec3 V = normalize(cameraPosition - vPosWorld);
+  /* Scan cone: sensor field of view */
+  var coneM = new THREE.MeshBasicMaterial({ color: 0x7fd1ff, transparent: true, opacity: 0.09, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+  var cone = new THREE.Mesh(new THREE.ConeGeometry(0.15, len, 40, 1, true), coneM);
+  cone.position.copy(stationP).add(dirST.clone().multiplyScalar(len / 2)); cone.quaternion.setFromUnitVectors(V(0, -1, 0), dirST); scene.add(cone);
+  var wire = new THREE.Mesh(new THREE.ConeGeometry(0.15, len, 14, 1, true), new THREE.MeshBasicMaterial({ color: 0x7fd1ff, wireframe: true, transparent: true, opacity: 0.1, depthWrite: false }));
+  wire.position.copy(cone.position); wire.quaternion.copy(cone.quaternion); scene.add(wire);
 
-          float NdotL = dot(N, L);
+  /* Predicted path of target */
+  var pp = []; for (var q = 0; q <= 48; q++) { var u = (q / 48 - 0.3) * 1.5; pp.push(P.clone().add(Tn.clone().multiplyScalar(u * 0.5)).add(Up.clone().multiplyScalar(Math.sin(u * 2.2) * 0.04))); }
+  var pathL = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pp), new THREE.LineDashedMaterial({ color: 0xffb454, dashSize: 0.016, gapSize: 0.012, transparent: true, opacity: 0.9 })); pathL.computeLineDistances(); scene.add(pathL);
 
-          // Day-to-Night Terminator Transition (-0.15 to +0.15)
-          float dayFactor = smoothstep(-0.12, 0.18, NdotL);
+  /* Net: curved mesh with weighted corners and a drawstring ring, plus the tether */
+  var net = new THREE.Group(); net.position.copy(P); scene.add(net);
+  var W = 0.46, N = 10, SEG = 12, k = 0.55, nl = [];
+  function np(x, y) { return [x, y, k * (x * x + y * y)]; }
+  function line(x0, y0, x1, y1) {
+    for (var s = 0; s < SEG; s++) {
+      var a = np(x0 + (x1 - x0) * s / SEG, y0 + (y1 - y0) * s / SEG), b = np(x0 + (x1 - x0) * (s + 1) / SEG, y0 + (y1 - y0) * (s + 1) / SEG);
+      nl.push(a[0], a[1], a[2], b[0], b[1], b[2]);
+    }
+  }
+  for (var a = 0; a <= N; a++) { var t = -W / 2 + W * a / N; line(-W / 2, t, W / 2, t); line(t, -W / 2, t, W / 2); }
+  var ng = new THREE.BufferGeometry(); ng.setAttribute('position', new THREE.BufferAttribute(new Float32Array(nl), 3));
+  var netM = new THREE.LineBasicMaterial({ color: 0xffc678, transparent: true, opacity: 0.8, depthWrite: false });
+  net.add(new THREE.LineSegments(ng, netM));
+  var rp = []; for (var r = 0; r <= 64; r++) { var an = r / 64 * Math.PI * 2, rx = Math.cos(an) * W * 0.5, ry = Math.sin(an) * W * 0.5, pz = np(rx, ry); rp.push(new THREE.Vector3(rx, ry, pz[2])); }
+  var ringL = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(rp), new THREE.LineBasicMaterial({ color: 0xffe2b0, transparent: true, opacity: 0.9, depthWrite: false })); net.add(ringL);
+  [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function(c) {
+    var pz = np(c[0] * W / 2, c[1] * W / 2); var wm = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.012, 10), M.alu); wm.position.set(c[0] * W / 2, c[1] * W / 2, pz[2]); net.add(wm);
+  });
+  net.lookAt(stationP);
+  var tether = new THREE.Line(new THREE.BufferGeometry().setFromPoints([stationP.clone(), P.clone()]), new THREE.LineBasicMaterial({ color: 0xffb454, transparent: true, opacity: 0.75 })); scene.add(tether);
 
-          vec3 dayTex = texture2D(dayMap, vUv).rgb;
-          vec3 nightTex = texture2D(nightMap, vUv).rgb;
-          float specMask = texture2D(specularMap, vUv).r;
+  Object.assign(S0, { S: S, Tn: Tn, Up: Up, stationP: stationP, P: P, dirST: dirST, len: len, st: st, head: head, anchors: anchors, drum: drum, lamp: lamp, tg: tg, tmodel: tmodel, hal: hal, cone: cone, wire: wire, coneM: coneM, pathL: pathL, net: net, netM: netM, ringL: ringL, tether: tether });
+})();
+</script>
+<script>
+(function() {
+  var S0 = window.__spaci; if (!S0 || !S0.net) return;
+  var THREE = S0.THREE, scene = S0.scene, camera = S0.camera, renderer = S0.renderer, reduce = S0.reduce;
+  var V = function(x, y, z) { return new THREE.Vector3(x, y, z); };
+  var cl = function(x, a, b) { return Math.max(a, Math.min(b, x)); };
+  var sm = function(a, b, x) { x = cl((x - a) / (b - a), 0, 1); return x * x * (3 - 2 * x); };
+  var S = S0.S, Tn = S0.Tn, Up = S0.Up, stationP = S0.stationP, P = S0.P, dirST = S0.dirST;
+  var side = new THREE.Vector3().crossVectors(Tn, S).normalize();
 
-          // Ocean Sun Glint (Blinn-Phong)
-          vec3 H = normalize(L + V);
-          float specLight = pow(max(dot(N, H), 0.0), 42.0) * specMask * dayFactor * 2.2;
-          vec3 glintColor = vec3(1.0, 0.95, 0.88) * specLight;
+  var narrow = function() { return window.innerWidth / window.innerHeight < 0.9; };
+  function keys() {
+    var nw = narrow(), mid = stationP.clone().add(P).multiplyScalar(0.5), zf = nw ? 1.9 : 1;
+    var sh = function(v, a) { return nw ? v : v.add(side.clone().multiplyScalar(a)); };
+    return [
+      { p: V(0.4, 0.5, nw ? 6.4 : 5.0), l: V(nw ? 0 : -1.4, nw ? -1.2 : 0.05, 0) },
+      { p: V(-3.2 * zf, 1.4, 3.3 * zf), l: V(nw ? 0 : 0.8, 0, 0) },
+      { p: mid.clone().add(S.clone().multiplyScalar(0.95)).add(Up.clone().multiplyScalar(0.4)).add(Tn.clone().multiplyScalar(nw ? 0.1 : 0.55)), l: mid.clone().add(Tn.clone().multiplyScalar(nw ? 0 : 0.4)) },
+      { p: stationP.clone().add(Tn.clone().multiplyScalar(0.82)).add(side.clone().multiplyScalar(1.62)).add(S.clone().multiplyScalar(0.62)).add(Up.clone().multiplyScalar(0.06)), l: stationP.clone().add(Tn.clone().multiplyScalar(nw ? 0.3 : 0.5)) },
+      { p: mid.clone().add(S.clone().multiplyScalar(0.85)).add(Tn.clone().multiplyScalar(-0.5)).add(Up.clone().multiplyScalar(0.3)), l: sh(mid.clone(), nw ? 0 : 0.1) },
+      { p: V(0, 0.4, 6.6 * zf), l: V(0, -0.25, 0) }
+    ];
+  }
+  var K = keys(), secs = [].slice.call(document.querySelectorAll('.scene,#s5')), tops = [];
+  function measure() { K = keys(); tops = secs.map(function(s) { return s.getBoundingClientRect().top + window.scrollY; }); }
+  function getT() {
+    var y = window.scrollY + window.innerHeight * 0.35, i = 0;
+    for (var k = 0; k < tops.length; k++) { if (y >= tops[k]) i = k; }
+    if (i >= tops.length - 1) return tops.length - 1;
+    return i + cl((y - tops[i]) / (tops[i + 1] - tops[i]), 0, 1);
+  }
+  function resize() {
+    var w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    S0.pointsMat.uniforms.uScale.value = h * 0.62; measure();
+  }
+  window.addEventListener('resize', resize); resize(); window.addEventListener('load', measure); setTimeout(measure, 700); setTimeout(measure, 2500);
+  var mx = 0, my = 0, tmx = 0, tmy = 0;
+  window.addEventListener('pointermove', function(e) { tmx = e.clientX / window.innerWidth - 0.5; tmy = e.clientY / window.innerHeight - 0.5; });
 
-          // Blend Day Map & Night City Lights
-          vec3 surfaceColor = mix(nightTex * 1.6, dayTex, dayFactor) + glintColor;
+  /* HUD, reticles, callouts */
+  var $ = function(id) { return document.getElementById(id); };
+  var rets = [$('rA'), $('rB'), $('rC')], rT = $('rT'), rTs = $('rTs'), rTt = $('rTt');
+  var hSys = $('hSys'), hTrk = $('hTrk'), hud = $('hud'), dots = [].slice.call(document.querySelectorAll('.rail a'));
+  var tags = [['tgLid', 'lidar'], ['tgGim', 'gim'], ['tgEj', 'ej'], ['tgWin', 'winch']].map(function(p) { return { el: $(p[0]), a: S0.anchors[p[1]] }; });
+  var names = ['ORBIT VIEW', 'DEBRIS FIELD', 'DETECT + TRACK', 'AIM + CAPTURE', 'RETRIEVE', 'RESULTS'];
+  var picks = S0.trackable.slice().sort(function() { return Math.random() - 0.5; }).slice(0, 3);
+  var rLab = [$('rAt'), $('rBt'), $('rCt')];
+  picks.forEach(function(m, i) { if (rLab[i]) rLab[i].textContent = m.userData.kind; });
+  var pw = V(0, 0, 0), wp = V(0, 0, 0);
+  function place(el, w, show) {
+    if (!el) return;
+    pw.copy(w).project(camera);
+    var vis = show > 0.02 && pw.z < 1 && Math.abs(pw.x) < 1.05 && Math.abs(pw.y) < 1.05;
+    el.style.opacity = vis ? String(show) : '0';
+    if (vis) el.style.transform = 'translate(' + ((pw.x * 0.5 + 0.5) * window.innerWidth).toFixed(1) + 'px,' + ((-pw.y * 0.5 + 0.5) * window.innerHeight).toFixed(1) + 'px)';
+  }
 
-          // Atmospheric Rim Glow (warming near terminator)
-          float rim = 1.0 - max(dot(N, V), 0.0);
-          float rimStrength = pow(rim, 3.4) * 0.9;
-
-          float termBlend = 1.0 - abs(NdotL);
-          vec3 rimColor = mix(uAtmosphereColor, uTerminatorColor, pow(termBlend, 2.2));
-
-          gl_FragColor = vec4(surfaceColor + (rimColor * rimStrength), 1.0);
-        }
-      `;
-
-      const earthMaterial = new THREE.ShaderMaterial({
-        uniforms: earthUniforms,
-        vertexShader: earthVertexShader,
-        fragmentShader: earthFragmentShader
-      });
-
-      const earthMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(earthRadius, 64, 64),
-        earthMaterial
-      );
-      earthGroup.add(earthMesh);
-
-      // Async Texture Loading with graceful fallback
-      const texLoader = new THREE.TextureLoader();
-      texLoader.crossOrigin = 'anonymous';
-
-      texLoader.load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg', (tex) => {
-        tex.wrapS = THREE.RepeatWrapping;
-        earthUniforms.dayMap.value = tex;
-      }, undefined, () => console.log('NASA Blue Marble day map fallback retained.'));
-
-      texLoader.load('https://unpkg.com/three-globe/example/img/earth-night.jpg', (tex) => {
-        tex.wrapS = THREE.RepeatWrapping;
-        earthUniforms.nightMap.value = tex;
-      }, undefined, () => console.log('NASA night lights fallback retained.'));
-
-      texLoader.load('https://unpkg.com/three-globe/example/img/earth-water.png', (tex) => {
-        tex.wrapS = THREE.RepeatWrapping;
-        earthUniforms.specularMap.value = tex;
-      }, undefined, () => console.log('Ocean specular mask fallback retained.'));
-
-      // ----------------------------------------------------------------------
-      // Procedural Drifting Clouds Layer
-      // ----------------------------------------------------------------------
-      (function buildCloudLayer() {
-        const cloudCanvas = document.createElement('canvas');
-        cloudCanvas.width = 512;
-        cloudCanvas.height = 256;
-        const ctx = cloudCanvas.getContext('2d');
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, 512, 256);
-
-        // Soft cloud swirling bands
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.42)';
-        for (let i = 0; i < 70; i++) {
-          const cx = Math.random() * 512;
-          const cy = 40 + Math.random() * 176;
-          const rw = 25 + Math.random() * 70;
-          const rh = 10 + Math.random() * 25;
-          ctx.beginPath();
-          ctx.ellipse(cx, cy, rw, rh, (Math.random() - 0.5) * 0.4, 0, Math.PI * 2);
-          ctx.fill();
-        }
-
-        const cloudTex = new THREE.CanvasTexture(cloudCanvas);
-        cloudTex.wrapS = THREE.RepeatWrapping;
-
-        const cloudMat = new THREE.MeshStandardMaterial({
-          map: cloudTex,
-          transparent: true,
-          opacity: 0.38,
-          blending: THREE.AdditiveBlending,
-          roughness: 0.9,
-          metalness: 0.0
-        });
-
-        const cloudMesh = new THREE.Mesh(
-          new THREE.SphereGeometry(earthRadius * 1.014, 48, 48),
-          cloudMat
-        );
-        earthGroup.add(cloudMesh);
-
-        // Update loop hook for slow drift
-        window._driftClouds = (dt) => {
-          cloudMesh.rotation.y += dt * 0.015;
-        };
-      })();
-
-      // ----------------------------------------------------------------------
-      // Soft Atmosphere Glow Shell
-      // ----------------------------------------------------------------------
-      (function buildAtmosphereShell() {
-        const atmoGeom = new THREE.SphereGeometry(earthRadius * 1.032, 48, 48);
-        const atmoMat = new THREE.ShaderMaterial({
-          side: THREE.BackSide,
-          transparent: true,
-          uniforms: {
-            uSunDir: { value: sunPosition.clone().normalize() }
-          },
-          vertexShader: `
-            varying vec3 vNormal;
-            void main() {
-              vNormal = normalize(normalMatrix * normal);
-              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }
-          `,
-          fragmentShader: `
-            uniform vec3 uSunDir;
-            varying vec3 vNormal;
-            void main() {
-              float intensity = pow(0.7 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.6);
-              gl_FragColor = vec4(0.49, 0.82, 1.0, 1.0) * intensity * 0.75;
-            }
-          `
-        });
-        const atmoMesh = new THREE.Mesh(atmoGeom, atmoMat);
-        earthGroup.add(atmoMesh);
-      })();
-
-      // ----------------------------------------------------------------------
-      // Debris Field: 7 Tilted Orbital Rings + 6,000 Dust Points
-      // ----------------------------------------------------------------------
-      const debrisGroup = new THREE.Group();
-      scene.add(debrisGroup);
-
-      // 7 Tilted Orbit Rings
-      const ringInclinations = [0.49, 0.90, 1.13, 1.29, 1.43, 1.57, 1.71]; // ~28°, 51.6°, 65°, 74°, 82°, 90°, 98° Sun-Sync
-      const ringRadii = [8.5, 9.2, 9.8, 10.6, 11.4, 12.2, 13.0];
-
-      ringRadii.forEach((r, idx) => {
-        const ringGeom = new THREE.BufferGeometry();
-        const pts = [];
-        const segs = 128;
-        const inc = ringInclinations[idx];
-
-        for (let i = 0; i <= segs; i++) {
-          const theta = (i / segs) * Math.PI * 2;
-          const x = r * Math.cos(theta);
-          const z = r * Math.sin(theta);
-          // Apply inclination rotation around X and Z
-          const y = z * Math.sin(inc);
-          const z_rot = z * Math.cos(inc);
-          pts.push(x, y, z_rot);
-        }
-
-        ringGeom.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-        const ringMat = new THREE.LineBasicMaterial({
-          color: 0x7FD1FF,
-          transparent: true,
-          opacity: 0.12
-        });
-        const orbitLine = new THREE.Line(ringGeom, ringMat);
-        debrisGroup.add(orbitLine);
-      });
-
-      // 6,000 Dust Points in Orbital Shells
-      (function buildDebrisDust() {
-        const count = 6000;
-        const geom = new THREE.BufferGeometry();
-        const positions = new Float32Array(count * 3);
-        const colors = new Float32Array(count * 3);
-
-        const colorA = new THREE.Color(0x7FD1FF);
-        const colorB = new THREE.Color(0x94A3B8);
-        const colorC = new THREE.Color(0xFFB454);
-
-        for (let i = 0; i < count; i++) {
-          const shellIdx = i % ringRadii.length;
-          const baseR = ringRadii[shellIdx];
-          const r = baseR + (Math.random() - 0.5) * 1.8;
-          const theta = Math.random() * Math.PI * 2;
-          const inc = ringInclinations[shellIdx] + (Math.random() - 0.5) * 0.15;
-
-          const x = r * Math.cos(theta);
-          const z_raw = r * Math.sin(theta);
-          const y = z_raw * Math.sin(inc) + (Math.random() - 0.5) * 0.6;
-          const z = z_raw * Math.cos(inc);
-
-          positions[i * 3]     = x;
-          positions[i * 3 + 1] = y;
-          positions[i * 3 + 2] = z;
-
-          const rnd = Math.random();
-          const col = rnd < 0.6 ? colorA : (rnd < 0.9 ? colorB : colorC);
-          const alpha = 0.25 + Math.random() * 0.45;
-          colors[i * 3]     = col.r * alpha;
-          colors[i * 3 + 1] = col.g * alpha;
-          colors[i * 3 + 2] = col.b * alpha;
-        }
-
-        geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-        const mat = new THREE.PointsMaterial({
-          size: 1.4,
-          vertexColors: true,
-          transparent: true,
-          opacity: 0.75,
-          depthWrite: false
-        });
-
-        const dustMesh = new THREE.Points(geom, mat);
-        debrisGroup.add(dustMesh);
-      })();
-
-      // ----------------------------------------------------------------------
-      // 50 Tumbling Debris Objects with Real Shapes
-      // ----------------------------------------------------------------------
-      const tumblingObjects = [];
-
-      // Solar Panel Cell Canvas Texture
-      const cellCanvas = document.createElement('canvas');
-      cellCanvas.width = 128;
-      cellCanvas.height = 128;
-      const cctx = cellCanvas.getContext('2d');
-      cctx.fillStyle = '#172554'; // Deep dark blue silicon
-      cctx.fillRect(0, 0, 128, 128);
-      cctx.strokeStyle = '#38BDF8';
-      cctx.lineWidth = 1;
-      for (let x = 0; x <= 128; x += 32) {
-        cctx.beginPath(); cctx.moveTo(x, 0); cctx.lineTo(x, 128); cctx.stroke();
+  /* Sensor feed panel (illustrative): RGB, LiDAR and fused views cycling */
+  var feed = $('feed'), fx = feed ? feed.getContext('2d') : null, fmodes = ['RGB CAMERA', 'LIDAR POINTS', 'FUSED TRACK'];
+  function drawFeed(t) {
+    if (!fx) return; var w = feed.width, h = feed.height, m = Math.floor(t / 3) % 3;
+    fx.fillStyle = '#070b14'; fx.fillRect(0, 0, w, h);
+    var cx = w * 0.5 + Math.sin(t * 0.9) * w * 0.2, cy = h * 0.5 + Math.sin(t * 1.7) * h * 0.13, rot = t * 0.7;
+    fx.save(); fx.translate(cx, cy); fx.rotate(rot);
+    if (m === 0 || m === 2) {
+      fx.fillStyle = m === 0 ? '#9fb0c8' : 'rgba(120,140,170,.45)'; fx.fillRect(-22, -14, 44, 28);
+      fx.fillStyle = m === 0 ? '#1c3f7a' : 'rgba(40,80,150,.4)'; fx.fillRect(-64, -6, 38, 12); fx.fillRect(26, -6, 38, 12);
+    }
+    fx.restore();
+    if (m === 1 || m === 2) {
+      fx.fillStyle = '#7fd1ff';
+      for (var i = 0; i < 140; i++) {
+        var a = i * 2.399 + t * 0.4, r = 8 + ((i * 37) % 58);
+        var px = cx + Math.cos(a + rot) * r * 1.25, py = cy + Math.sin(a + rot) * r * 0.62;
+        fx.globalAlpha = 0.35 + 0.4 * ((i * 13) % 7) / 7; fx.fillRect(px, py, 2, 2);
       }
-      for (let y = 0; y <= 128; y += 32) {
-        cctx.beginPath(); cctx.moveTo(0, y); cctx.lineTo(128, y); cctx.stroke();
-      }
-      const solarTex = new THREE.CanvasTexture(cellCanvas);
+      fx.globalAlpha = 1;
+    }
+    fx.strokeStyle = 'rgba(127,209,255,.12)'; fx.lineWidth = 1;
+    for (var g = 0; g < w; g += 30) { fx.beginPath(); fx.moveTo(g, 0); fx.lineTo(g, h); fx.stroke(); }
+    for (g = 0; g < h; g += 30) { fx.beginPath(); fx.moveTo(0, g); fx.lineTo(w, g); fx.stroke(); }
+    var bw = 96, bh = 70; fx.strokeStyle = '#ffb454'; fx.lineWidth = 2; fx.strokeRect(cx - bw / 2, cy - bh / 2, bw, bh);
+    fx.fillStyle = '#ffb454'; fx.fillRect(cx - bw / 2, cy - bh / 2 - 18, 112, 18); fx.fillStyle = '#06101c'; fx.font = '500 11px JetBrains Mono, monospace'; fx.fillText('debris  0.9' + (3 + Math.floor(Math.sin(t * 2) * 1.4 + 1.4)), cx - bw / 2 + 6, cy - bh / 2 - 5);
+    fx.fillStyle = '#b5c2d6'; fx.fillText(fmodes[m], 10, h - 10); fx.fillText('ILLUSTRATIVE', w - 98, h - 10);
+  }
+
+  var cp = V(0, 0, 6), cLook = V(0, 0, 0), tp = V(0, 0, 0), tl = V(0, 0, 0), clock = new THREE.Clock(), tm = 0, prevIdx = -1, front = stationP.clone().add(dirST.clone().multiplyScalar(0.075)), fv = V(0, 0, 0);
+  camera.position.set(0.4, 0.5, 5);
+
+  function frame() {
+    var dt = Math.min(clock.getDelta(), 0.05); tm += dt; var sp = reduce ? 0.15 : 1;
+    var tt = getT(), i = Math.min(Math.floor(tt), K.length - 2), f = sm(0, 1, tt - i); if (tt >= K.length - 1) { i = K.length - 2; f = 1; }
+    tp.copy(K[i].p).lerp(K[i + 1].p, f); tl.copy(K[i].l).lerp(K[i + 1].l, f);
+    var damp = reduce ? 1 : 1 - Math.pow(0.0009, dt); cp.lerp(tp, damp); cLook.lerp(tl, damp);
+    mx += (tmx - mx) * 0.05; my += (tmy - my) * 0.05;
+    camera.position.copy(cp); camera.position.x += mx * 0.3; camera.position.y += -my * 0.2; camera.up.set(0, 1, 0); camera.lookAt(cLook);
+
+    S0.earthMat.uniforms.uT.value = tm; S0.cloudMat.uniforms.uT.value = tm; S0.clouds.rotation.y += dt * 0.004 * sp;
+    S0.orbits.forEach(function(o) { o.inner.rotation.y += o.sp * dt * sp; });
+    S0.meshes.forEach(function(m) { m.rotation.x += m.userData.spin.x * dt * sp; m.rotation.y += m.userData.spin.y * dt * sp; });
+    S0.tmodel.rotation.x += dt * 0.28 * sp; S0.tmodel.rotation.y += dt * 0.4 * sp; S0.tmodel.rotation.z += dt * 0.12 * sp;
+
+    /* Capture sequence driven by scroll */
+    var show = sm(1.3, 2.0, tt) * (1 - sm(4.7, 5.0, tt));
+    var open = sm(2.85, 3.6, tt), close = sm(3.95, 4.45, tt), pull = sm(4.4, 4.95, tt);
+    var nsc = (0.04 + 0.96 * open) * (1 - 0.8 * close); S0.net.scale.setScalar(Math.max(0.02, nsc)); S0.net.visible = open > 0.01;
+    S0.netM.opacity = 0.85 * cl(open * 3, 0, 1); S0.ringL.material.opacity = 0.9 * cl(open * 3, 0, 1) * (1 + close * 0.1);
+    var go = open, back = pull;
+    var tgp = P.clone().lerp(front, back);
+    var npos = front.clone().lerp(tgp, go);
+    S0.net.position.copy(npos); S0.net.lookAt(stationP);
+    S0.tg.position.copy(tgp.add(Up.clone().multiplyScalar(Math.sin(tm * 1.2) * 0.003 * (1 - pull))));
+    var tp2 = S0.tether.geometry.attributes.position; tp2.setXYZ(0, front.x, front.y, front.z); tp2.setXYZ(1, npos.x, npos.y, npos.z); tp2.needsUpdate = true; S0.tether.visible = open > 0.05;
+    S0.drum.rotation.x = (open * 6 + pull * -9) * 1.3;
+    var cc = 1 - 0.65 * sm(3.2, 3.8, tt); S0.coneM.opacity = 0.09 * show * cc; S0.wire.material.opacity = 0.1 * show * cc;
+    S0.pathL.material.opacity = 0.9 * sm(1.5, 2.2, tt) * (1 - sm(3.1, 3.7, tt)); S0.cone.visible = S0.wire.visible = show > 0.02; S0.pathL.visible = S0.pathL.material.opacity > 0.02;
+
+    /* Sensor head sweeps while searching, then locks */
+    var lock = sm(1.9, 2.5, tt); S0.head.rotation.y = Math.sin(tm * 1.6) * 0.5 * (1 - lock); S0.head.rotation.x = Math.sin(tm * 1.1) * 0.12 * (1 - lock);
+    S0.lamp.visible = Math.sin(tm * 5) > -0.2;
+
+    /* Reticles and callout tags */
+    var near = 1 - sm(1.0, 1.5, tt);
+    rets.forEach(function(r, k) { place(r, picks[k].getWorldPosition(wp), near * (tt < 1.5 ? 1 : 0)); });
+    place(rT, S0.tg.getWorldPosition(wp), show);
+    var tagA = sm(2.75, 3.05, tt) * (1 - sm(3.55, 3.85, tt));
+    tags.forEach(function(t) { place(t.el, t.a.getWorldPosition(wp), tagA); });
+    var spd = 412 + Math.round(Math.sin(tm * 2.1) * 6);
+    var phase = tt < 3.0 ? 'LOCKED' : tt < 3.9 ? 'NET OUT' : tt < 4.5 ? 'CLOSING' : 'RETRIEVED';
+    if (rTt && rTt.firstChild) rTt.firstChild.nodeValue = 'TRK 07 / ' + phase;
+    if (rTs) rTs.textContent = 'Defunct satellite  ' + spd + ' mm/s';
+
+    var idx = Math.min(Math.round(tt), 5);
+    if (idx !== prevIdx) {
+      prevIdx = idx;
+      if (hSys) hSys.textContent = names[idx];
+      dots.forEach(function(d, k) { d.className = k === idx ? 'on' : ''; });
+      if (hud) hud.style.opacity = idx >= 5 ? '0' : '1';
+    }
+    if (hTrk) hTrk.textContent = tt < 1.5 ? '3 objects' : (tt < 4.6 ? '1 target' : 'idle');
+    if (tt > 1.6 && tt < 3.2) drawFeed(tm);
+
+    /* Sun glare */
+    camera.getWorldDirection(fv); S0.sunSpr.material.opacity = sm(0.55, 0.97, fv.dot(S0.SUN)) * 0.85;
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
 
-      const goldFoilMat = new THREE.MeshStandardMaterial({
-        color: 0xD4AF37,
-        metalness: 0.88,
-        roughness: 0.28,
-        bumpScale: 0.05
-      });
-
-      const solarPanelMat = new THREE.MeshStandardMaterial({
-        map: solarTex,
-        metalness: 0.7,
-        roughness: 0.35
-      });
-
-      const rocketBodyMat = new THREE.MeshStandardMaterial({
-        color: 0xE2E8F0,
-        metalness: 0.65,
-        roughness: 0.4
-      });
-
-      const darkMetalMat = new THREE.MeshStandardMaterial({
-        color: 0x334155,
-        metalness: 0.9,
-        roughness: 0.4
-      });
-
-      const rockFragmentMat = new THREE.MeshStandardMaterial({
-        color: 0x1E293B,
-        roughness: 0.85,
-        metalness: 0.1
-      });
-
-      // Factory for Defunct Satellites
-      function createDefunctSatelliteMesh() {
-        const g = new THREE.Group();
-        // Bus body
-        const bus = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 0.6), goldFoilMat);
-        g.add(bus);
-        // Solar panels
-        const wing1 = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.02, 0.35), solarPanelMat);
-        wing1.position.set(0.8, 0, 0);
-        const wing2 = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.02, 0.35), solarPanelMat);
-        wing2.position.set(-0.8, 0, 0);
-        g.add(wing1, wing2);
-        // Nozzle
-        const nozzle = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.2, 12), darkMetalMat);
-        nozzle.rotation.x = Math.PI;
-        nozzle.position.set(0, 0, -0.35);
-        g.add(nozzle);
-        return g;
-      }
-
-      // Factory for Rocket Bodies
-      function createRocketBodyMesh() {
-        const g = new THREE.Group();
-        const stage = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 1.4, 16), rocketBodyMat);
-        const interstage = new THREE.Mesh(new THREE.CylinderGeometry(0.255, 0.255, 0.2, 16), darkMetalMat);
-        interstage.position.y = 0.3;
-        const engine = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.35, 16), darkMetalMat);
-        engine.position.y = -0.8;
-        engine.rotation.x = Math.PI;
-        g.add(stage, interstage, engine);
-        return g;
-      }
-
-      // Factory for Panel Shards
-      function createPanelShardMesh() {
-        return new THREE.Mesh(new THREE.BoxGeometry(0.6 + Math.random() * 0.4, 0.015, 0.4 + Math.random() * 0.3), solarPanelMat);
-      }
-
-      // Factory for Crumpled Foil
-      function createCrumpledFoilMesh() {
-        const geom = new THREE.IcosahedronGeometry(0.25 + Math.random() * 0.15, 1);
-        const pos = geom.attributes.position;
-        for (let i = 0; i < pos.count; i++) {
-          pos.setXYZ(i,
-            pos.getX(i) + (Math.random() - 0.5) * 0.08,
-            pos.getY(i) + (Math.random() - 0.5) * 0.08,
-            pos.getZ(i) + (Math.random() - 0.5) * 0.08
-          );
-        }
-        geom.computeVertexNormals();
-        return new THREE.Mesh(geom, goldFoilMat);
-      }
-
-      // Factory for Rock-like Shards
-      function createRockShardMesh() {
-        const geom = new THREE.DodecahedronGeometry(0.2 + Math.random() * 0.2, 0);
-        return new THREE.Mesh(geom, rockFragmentMat);
-      }
-
-      // Spawn 50 Tumbling Debris Objects
-      for (let i = 0; i < 50; i++) {
-        let objMesh;
-        const typeRoll = i % 5;
-        if (typeRoll === 0) objMesh = createDefunctSatelliteMesh();
-        else if (typeRoll === 1) objMesh = createRocketBodyMesh();
-        else if (typeRoll === 2) objMesh = createPanelShardMesh();
-        else if (typeRoll === 3) objMesh = createCrumpledFoilMesh();
-        else objMesh = createRockShardMesh();
-
-        const shellIdx = i % ringRadii.length;
-        const r = ringRadii[shellIdx] + (Math.random() - 0.5) * 1.5;
-        const theta = (i / 50) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
-        const inc = ringInclinations[shellIdx];
-
-        objMesh.position.set(
-          r * Math.cos(theta),
-          r * Math.sin(theta) * Math.sin(inc),
-          r * Math.sin(theta) * Math.cos(inc)
-        );
-
-        objMesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-
-        // Store random rotational tumbling velocities
-        objMesh.userData = {
-          rotSpeed: new THREE.Vector3(
-            (Math.random() - 0.5) * 0.02,
-            (Math.random() - 0.5) * 0.025,
-            (Math.random() - 0.5) * 0.02
-          ),
-          orbitR: r,
-          orbitTheta: theta,
-          orbitInc: inc,
-          orbitSpeed: 0.0003 + (1.0 / r) * 0.0005
-        };
-
-        debrisGroup.add(objMesh);
-        tumblingObjects.push(objMesh);
-      }
-
-      // ----------------------------------------------------------------------
-      // SPACI Capture Machine in Orbit (Procedural Hierarchical Construction)
-      // ----------------------------------------------------------------------
-      const machineGroup = new THREE.Group();
-      machineGroup.position.set(-1.2, 0.4, 4.5); // Staged in orbit ahead of camera
-      scene.add(machineGroup);
-
-      // Machine Bus Body (Gold Foil)
-      const busGeom = new THREE.BoxGeometry(1.6, 1.2, 2.0);
-      const machineBus = new THREE.Mesh(busGeom, goldFoilMat);
-      machineGroup.add(machineBus);
-
-      // Radiator Panels on Sides
-      const radMat = new THREE.MeshStandardMaterial({ color: 0x94A3B8, metalness: 0.8, roughness: 0.2 });
-      const radL = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.9, 1.4), radMat);
-      radL.position.set(-0.82, 0, 0);
-      const radR = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.9, 1.4), radMat);
-      radR.position.set(0.82, 0, 0);
-      machineGroup.add(radL, radR);
-
-      // Deployable Solar Wings
-      const machSolarWingL = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.03, 0.8), solarPanelMat);
-      machSolarWingL.position.set(-2.0, 0, 0);
-      const machSolarWingR = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.03, 0.8), solarPanelMat);
-      machSolarWingR.position.set(2.0, 0, 0);
-      machineGroup.add(machSolarWingL, machSolarWingR);
-
-      // Front Face (Ejectors Plate)
-      const frontPlate = new THREE.Mesh(new THREE.BoxGeometry(1.55, 1.15, 0.08), darkMetalMat);
-      frontPlate.position.set(0, 0, 1.04);
-      machineGroup.add(frontPlate);
-
-      // 4 Pneumatic Ejector Tubes with Amber Anodized Rims (Angled 12° Outward)
-      const ejectorPositions = [
-        [-0.55,  0.42, 1.2, -0.15, -0.15],
-        [ 0.55,  0.42, 1.2, -0.15,  0.15],
-        [-0.55, -0.42, 1.2,  0.15, -0.15],
-        [ 0.55, -0.42, 1.2,  0.15,  0.15]
-      ];
-
-      const barrelGeom = new THREE.CylinderGeometry(0.10, 0.11, 0.42, 16);
-      const barrelMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.85, roughness: 0.3 });
-      const amberRimMat = new THREE.MeshStandardMaterial({
-        color: 0xFFB454,
-        emissive: 0xFFB454,
-        emissiveIntensity: 0.6,
-        metalness: 0.5,
-        roughness: 0.2
-      });
-
-      ejectorPositions.forEach(([x, y, z, rx, ry]) => {
-        const ejector = new THREE.Group();
-        ejector.position.set(x, y, z);
-        ejector.rotation.set(rx, ry, 0);
-
-        const barrel = new THREE.Mesh(barrelGeom, barrelMat);
-        barrel.rotation.x = Math.PI / 2;
-        const rim = new THREE.Mesh(new THREE.TorusGeometry(0.10, 0.02, 8, 16), amberRimMat);
-        rim.position.z = 0.21;
-
-        ejector.add(barrel, rim);
-        machineGroup.add(ejector);
-      });
-
-      // Pan-Tilt Gimbal & Sensor Head (Top Yoke)
-      const gimbalGroup = new THREE.Group();
-      gimbalGroup.position.set(0, 0.72, 0.45);
-      machineGroup.add(gimbalGroup);
-
-      const yokeBase = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.12, 16), darkMetalMat);
-      gimbalGroup.add(yokeBase);
-
-      const sensorTurret = new THREE.Group();
-      sensorTurret.position.y = 0.16;
-      gimbalGroup.add(sensorTurret);
-
-      // LiDAR Cylinder with Glowing Cyan Lens
-      const lidarCylinder = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.32, 16), darkMetalMat);
-      lidarCylinder.rotation.x = Math.PI / 2;
-      const cyanLens = new THREE.Mesh(
-        new THREE.CircleGeometry(0.11, 16),
-        new THREE.MeshStandardMaterial({
-          color: 0x7FD1FF,
-          emissive: 0x7FD1FF,
-          emissiveIntensity: 0.85,
-          roughness: 0.1
-        })
-      );
-      cyanLens.position.z = 0.162;
-      sensorTurret.add(lidarCylinder, cyanLens);
-
-      // Dual Stereo Cameras
-      const camGeom = new THREE.BoxGeometry(0.09, 0.09, 0.18);
-      const camL = new THREE.Mesh(camGeom, darkMetalMat);
-      camL.position.set(-0.24, 0, 0);
-      const camR = new THREE.Mesh(camGeom, darkMetalMat);
-      camR.position.set(0.24, 0, 0);
-      sensorTurret.add(camL, camR);
-
-      // Winch Drum at Rear
-      const winchGroup = new THREE.Group();
-      winchGroup.position.set(0, 0, -1.08);
-      machineGroup.add(winchGroup);
-
-      const winchDrumGeom = new THREE.CylinderGeometry(0.35, 0.35, 0.6, 24);
-      const winchDrumMat = new THREE.MeshStandardMaterial({ color: 0x1E293B, metalness: 0.9, roughness: 0.35 });
-      const winchDrum = new THREE.Mesh(winchDrumGeom, winchDrumMat);
-      winchDrum.rotation.z = Math.PI / 2;
-      winchGroup.add(winchDrum);
-
-      // High-Gain Parabolic Dish Antenna
-      const dish = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), darkMetalMat);
-      dish.position.set(0, 0.85, -0.6);
-      dish.rotation.x = -Math.PI / 3;
-      machineGroup.add(dish);
-
-      // RCS Cold-Gas Thruster Quads
-      const rcsPositions = [
-        [-0.85, 0.6, -1.0], [0.85, 0.6, -1.0],
-        [-0.85, 0.6,  1.0], [0.85, 0.6,  1.0]
-      ];
-      rcsPositions.forEach(([x, y, z]) => {
-        const rcs = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.12, 8), darkMetalMat);
-        rcs.position.set(x, y, z);
-        machineGroup.add(rcs);
-      });
-
-      // Machine +Z Axis points directly toward the target
-      machineGroup.rotation.y = 0.22;
-
-      // ----------------------------------------------------------------------
-      // Target Satellite & Sensor Scan Cone
-      // ----------------------------------------------------------------------
-      const targetGroup = new THREE.Group();
-      // Positioned along the capture line of sight ahead of machine
-      targetGroup.position.set(0.6, 0.7, 12.8);
-      scene.add(targetGroup);
-
-      // Derelict Target Mesh (Derelict Satellite)
-      const targetBus = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.6, 0.9), goldFoilMat);
-      const targetBrokenWing = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.02, 0.4), solarPanelMat);
-      targetBrokenWing.position.set(0.85, 0.1, 0);
-      targetBrokenWing.rotation.z = -0.35; // Damaged snapped wing
-      targetGroup.add(targetBus, targetBrokenWing);
-
-      // Faint Amber Target Lock Halo
-      const haloMat = new THREE.MeshBasicMaterial({
-        color: 0xFFB454,
-        transparent: true,
-        opacity: 0.35,
-        side: THREE.DoubleSide
-      });
-      const targetHalo = new THREE.Mesh(new THREE.RingGeometry(0.85, 0.92, 32), haloMat);
-      targetGroup.add(targetHalo);
-
-      // Translucent Scan Cone from Machine Sensor Head to Target
-      const coneMat = new THREE.MeshBasicMaterial({
-        color: 0x7FD1FF,
-        transparent: true,
-        opacity: 0.18,
-        wireframe: true
-      });
-      const scanCone = new THREE.Mesh(new THREE.ConeGeometry(1.6, 8.5, 18, 1, true), coneMat);
-      scanCone.rotation.x = Math.PI / 2;
-      scanCone.position.set(0, 0, 4.3);
-      machineGroup.add(scanCone);
-
-      // Dashed Predicted Path Line Ahead of Target
-      (function buildPredictedPath() {
-        const pathGeom = new THREE.BufferGeometry();
-        const pts = [];
-        for (let i = 0; i <= 24; i++) {
-          const t = i / 24.0;
-          pts.push(
-            0.6 + t * 0.4,
-            0.7 - (t * t * 0.3),
-            12.8 + (t * 4.0)
-          );
-        }
-        pathGeom.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-        const pathMat = new THREE.LineDashedMaterial({
-          color: 0xFFB454,
-          dashSize: 0.25,
-          gapSize: 0.15,
-          linewidth: 1.5
-        });
-        const predLine = new THREE.Line(pathGeom, pathMat);
-        predLine.computeLineDistances();
-        scene.add(predLine);
-      })();
-
-      // ----------------------------------------------------------------------
-      // Pneumatic Tethered Net & Deployment Kinematics
-      // ----------------------------------------------------------------------
-      const netGroup = new THREE.Group();
-      scene.add(netGroup);
-
-      // Net Mesh Construction (Curved line grid with drawstring)
-      const netGridSize = 9;
-      const netLinesGeom = new THREE.BufferGeometry();
-      const netVertices = [];
-
-      for (let r = 0; r <= netGridSize; r++) {
-        for (let c = 0; c < netGridSize; c++) {
-          // Horizontal line segments
-          netVertices.push(
-            ((c / netGridSize) - 0.5) * 2, ((r / netGridSize) - 0.5) * 2, 0,
-            (((c + 1) / netGridSize) - 0.5) * 2, ((r / netGridSize) - 0.5) * 2, 0
-          );
-        }
-      }
-      for (let c = 0; c <= netGridSize; c++) {
-        for (let r = 0; r < netGridSize; r++) {
-          // Vertical line segments
-          netVertices.push(
-            ((c / netGridSize) - 0.5) * 2, ((r / netGridSize) - 0.5) * 2, 0,
-            ((c / netGridSize) - 0.5) * 2, (((r + 1) / netGridSize) - 0.5) * 2, 0
-          );
-        }
-      }
-      netLinesGeom.setAttribute('position', new THREE.Float32BufferAttribute(netVertices, 3));
-
-      const netMat = new THREE.LineBasicMaterial({
-        color: 0xE2E8F0,
-        transparent: true,
-        opacity: 0.75,
-        linewidth: 1.5
-      });
-      const netLineMesh = new THREE.LineSegments(netLinesGeom, netMat);
-      netGroup.add(netLineMesh);
-
-      // Drawstring Ring Around Perimeter
-      const ringGeom = new THREE.TorusGeometry(1.05, 0.03, 8, 32);
-      const drawstringMat = new THREE.MeshBasicMaterial({ color: 0xFFB454 });
-      const drawstringRing = new THREE.Mesh(ringGeom, drawstringMat);
-      netGroup.add(drawstringRing);
-
-      // 4 Weighted Corner Projectile Slugs
-      const slugGeom = new THREE.SphereGeometry(0.08, 8, 8);
-      const slugMat = new THREE.MeshStandardMaterial({ color: 0xFFB454, metalness: 0.9, roughness: 0.2 });
-      const cornerSlugs = [
-        new THREE.Mesh(slugGeom, slugMat),
-        new THREE.Mesh(slugGeom, slugMat),
-        new THREE.Mesh(slugGeom, slugMat),
-        new THREE.Mesh(slugGeom, slugMat)
-      ];
-      cornerSlugs[0].position.set(-1.0, -1.0, 0);
-      cornerSlugs[1].position.set( 1.0, -1.0, 0);
-      cornerSlugs[2].position.set(-1.0,  1.0, 0);
-      cornerSlugs[3].position.set( 1.0,  1.0, 0);
-      cornerSlugs.forEach(s => netGroup.add(s));
-
-      // Main Tether Cable Connecting Net to Winch Drum
-      const tetherGeom = new THREE.BufferGeometry();
-      tetherGeom.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, 1], 3));
-      const tetherMat = new THREE.LineBasicMaterial({ color: 0x94A3B8, linewidth: 2 });
-      const tetherLine = new THREE.Line(tetherGeom, tetherMat);
-      scene.add(tetherLine);
-
-      // Net is initially packed / hidden
-      netGroup.scale.set(0.001, 0.001, 0.001);
-      netGroup.visible = false;
-      tetherLine.visible = false;
-
-      // ----------------------------------------------------------------------
-      // Scroll-Driven Camera & Sequence Orchestrator
-      // Keyframe positions & lookAt targets computed by smoothstep
-      // ----------------------------------------------------------------------
-      let scrollY = 0;
-      let targetScrollT = 0;
-      let currentScrollT = 0;
-
-      // Smoothstep helper
-      function smoothstep(edge0, edge1, x) {
-        const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
-        return t * t * (3 - 2 * t);
-      }
-
-      function lerp(a, b, t) {
-        return a + (b - a) * t;
-      }
-
-      function lerpVec3(vA, vB, t, out) {
-        out.x = lerp(vA.x, vB.x, t);
-        out.y = lerp(vA.y, vB.y, t);
-        out.z = lerp(vA.z, vB.z, t);
-        return out;
-      }
-
-      // Camera Stage Keyframes
-      // 0 Hero: wide view of Earth on right, machine in orbit
-      // 1 Problem: fly around dense debris shells
-      // 2 Detect & Track: approach machine and target, show scan cone
-      // 3 Aim & Capture: three-quarter view, net launches & wraps
-      // 4 Retrieve: drawstring tightens, winch spins, reels target back
-      // 5 Content: calm overview with globe dimmed behind panels
-      const cameraStages = [
-        { cam: new THREE.Vector3(8.5, 2.0, 17.5),  look: new THREE.Vector3(2.5, 0.0, 0.0) }, // Stage 0
-        { cam: new THREE.Vector3(3.2, 5.5, 14.8),  look: new THREE.Vector3(1.0, 1.2, 2.5) }, // Stage 1
-        { cam: new THREE.Vector3(-1.8, 1.6, 7.8),  look: new THREE.Vector3(0.0, 0.8, 8.5) }, // Stage 2
-        { cam: new THREE.Vector3(-3.2, 2.2, 7.5),  look: new THREE.Vector3(0.2, 0.6, 9.2) }, // Stage 3
-        { cam: new THREE.Vector3(-2.6, 1.8, 6.2),  look: new THREE.Vector3(0.0, 0.5, 8.0) }, // Stage 4
-        { cam: new THREE.Vector3(5.5, 3.5, 19.0),  look: new THREE.Vector3(2.0, 0.0, 0.0) }  // Stage 5
-      ];
-
-      // Track current section index for dot navigation & HUD
-      const sectionElements = document.querySelectorAll('.page-section');
-      const dotItems = document.querySelectorAll('.dot-item');
-      const hudStageEl = document.getElementById('hud-stage-name');
-      const hudLockEl = document.getElementById('hud-lock-status');
-      const targetHudStateEl = document.getElementById('target-hud-state');
-      const targetHudTelemetryEl = document.getElementById('target-hud-telemetry');
-
-      // Global Scroll Listener
-      function updateScrollProgress() {
-        const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-        scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
-        const normScroll = maxScroll > 0 ? (scrollY / maxScroll) : 0;
-        targetScrollT = normScroll * 5.0; // Normalized across 5 main camera stages
-
-        // Update active dot based on scroll position
-        let currentSectionIdx = 0;
-        sectionElements.forEach((el, idx) => {
-          const rect = el.getBoundingClientRect();
-          if (rect.top <= window.innerHeight * 0.45 && rect.bottom >= window.innerHeight * 0.45) {
-            currentSectionIdx = idx;
-          }
-        });
-
-        dotItems.forEach((d, idx) => {
-          d.classList.toggle('active', idx === currentSectionIdx);
-        });
-      }
-
-      window.addEventListener('scroll', updateScrollProgress, { passive: true });
-      updateScrollProgress();
-
-      // Dot click handler
-      window.scrollToSection = function(idx) {
-        if (sectionElements[idx]) {
-          sectionElements[idx].scrollIntoView({ behavior: 'smooth' });
-        }
-      };
-
-      dotItems.forEach((dot) => {
-        dot.addEventListener('click', () => {
-          const idx = parseInt(dot.getAttribute('data-section'), 10);
-          scrollToSection(idx);
-        });
-      });
-
-      // Pointer Parallax
-      let mouseX = 0, mouseY = 0;
-      let targetMouseX = 0, targetMouseY = 0;
-
-      window.addEventListener('mousemove', (e) => {
-        targetMouseX = (e.clientX / window.innerWidth) - 0.5;
-        targetMouseY = (e.clientY / window.innerHeight) - 0.5;
-      }, { passive: true });
-
-      // Screen-space 2D tracker projection elements
-      const trackerDebris0 = document.getElementById('tracker-debris-0');
-      const trackerDebris1 = document.getElementById('tracker-debris-1');
-      const trackerDebris2 = document.getElementById('tracker-debris-2');
-      const trackerTarget = document.getElementById('tracker-target');
-
-      const tagSensors = document.getElementById('tag-sensors');
-      const tagGimbal = document.getElementById('tag-gimbal');
-      const tagEjectors = document.getElementById('tag-ejectors');
-      const tagWinch = document.getElementById('tag-winch');
-
-      const projTempVec = new THREE.Vector3();
-
-      function projectToScreen(vec3Pos, element, isVisible, offsetX = 0, offsetY = 0) {
-        if (!isVisible || !element) {
-          if (element) element.style.opacity = '0';
-          return;
-        }
-
-        projTempVec.copy(vec3Pos).project(camera);
-
-        // Check if point is in front of camera
-        if (projTempVec.z > 1.0) {
-          element.style.opacity = '0';
-          return;
-        }
-
-        const screenX = ((projTempVec.x * 0.5) + 0.5) * window.innerWidth + offsetX;
-        const screenY = (-(projTempVec.y * 0.5) + 0.5) * window.innerHeight + offsetY;
-
-        element.style.left = `${screenX}px`;
-        element.style.top = `${screenY}px`;
-        element.style.opacity = '1';
-      }
-
-      // ----------------------------------------------------------------------
-      // Illustrative Sensor Feed Canvas Loop (RGB / LiDAR / Fused)
-      // ----------------------------------------------------------------------
-      (function initSensorFeed() {
-        const feedCanvas = document.getElementById('sensor-feed-canvas');
-        if (!feedCanvas) return;
-        const fctx = feedCanvas.getContext('2d');
-        const feedLabel = document.getElementById('feed-channel-label');
-        let feedTime = 0;
-
-        function renderFeed() {
-          feedTime += 0.02;
-          const modeIdx = Math.floor(feedTime / 3) % 3; // Cycle every 3 seconds
-
-          fctx.fillStyle = '#02040A';
-          fctx.fillRect(0, 0, feedCanvas.width, feedCanvas.height);
-
-          const centerX = feedCanvas.width / 2 + Math.sin(feedTime * 0.8) * 25;
-          const centerY = feedCanvas.height / 2 + Math.cos(feedTime * 0.6) * 12;
-
-          if (modeIdx === 0) {
-            // Mode 0: RGB Optical Feed
-            if (feedLabel) feedLabel.textContent = 'CHANNEL: RGB OPTICAL + BOUNDING BOX';
-            // Starfield background
-            fctx.fillStyle = '#FFFFFF';
-            for (let i = 0; i < 20; i++) {
-              fctx.fillRect((i * 21) % feedCanvas.width, (i * 17) % feedCanvas.height, 1, 1);
-            }
-            // Debris object silhouette
-            fctx.fillStyle = '#D4AF37';
-            fctx.fillRect(centerX - 18, centerY - 14, 36, 28);
-            // Bounding box
-            fctx.strokeStyle = '#38BDF8';
-            fctx.lineWidth = 1.5;
-            fctx.strokeRect(centerX - 24, centerY - 20, 48, 40);
-            fctx.fillStyle = '#38BDF8';
-            fctx.font = '10px "JetBrains Mono"';
-            fctx.fillText('sat_defunct 0.94', centerX - 24, centerY - 24);
-          } else if (modeIdx === 1) {
-            // Mode 1: LiDAR False-Color Point Cloud
-            if (feedLabel) feedLabel.textContent = 'CHANNEL: PULSED LIDAR DEPTH CLOUD';
-            for (let r = -22; r <= 22; r += 4) {
-              for (let c = -18; c <= 18; c += 4) {
-                const distZ = Math.sqrt(r * r + c * c);
-                if (distZ < 22) {
-                  const hue = 190 + distZ * 3.5;
-                  fctx.fillStyle = `hsl(${hue}, 85%, 60%)`;
-                  fctx.fillRect(centerX + r, centerY + c, 2, 2);
-                }
-              }
-            }
-            fctx.fillStyle = '#7FD1FF';
-            fctx.font = '10px "JetBrains Mono"';
-            fctx.fillText('DEPTH: 3.42m +/- 0.04m', 14, 22);
-          } else {
-            // Mode 2: Fused 3D GNC Intercept Solution
-            if (feedLabel) feedLabel.textContent = 'CHANNEL: FUSED 3D KALMAN TRACK & GNC';
-            fctx.strokeStyle = '#FFB454';
-            fctx.lineWidth = 1.5;
-            fctx.strokeRect(centerX - 24, centerY - 20, 48, 40);
-            // Intercept crosshair
-            fctx.beginPath();
-            fctx.arc(centerX, centerY, 8, 0, Math.PI * 2);
-            fctx.moveTo(centerX - 14, centerY); fctx.lineTo(centerX + 14, centerY);
-            fctx.moveTo(centerX, centerY - 14); fctx.lineTo(centerX, centerY + 14);
-            fctx.stroke();
-            fctx.fillStyle = '#FFB454';
-            fctx.font = '10px "JetBrains Mono"';
-            fctx.fillText('LOCK: FIRE_READY (6/6 OK)', 14, 22);
-          }
-
-          requestAnimationFrame(renderFeed);
-        }
-        renderFeed();
-      })();
-
-      // ----------------------------------------------------------------------
-      // Main Animation & Render Loop
-      // ----------------------------------------------------------------------
-      const clock = new THREE.Clock();
-      const currentLookAt = new THREE.Vector3();
-      const targetLookAt = new THREE.Vector3();
-      const targetCamPos = new THREE.Vector3();
-
-      function animate() {
-        requestAnimationFrame(animate);
-
-        const dt = Math.min(clock.getDelta(), 0.1);
-
-        // Smoothly interpolate scroll progress parameter t
-        currentScrollT = lerp(currentScrollT, targetScrollT, 0.08);
-
-        // Pointer Parallax damping
-        mouseX = lerp(mouseX, targetMouseX, 0.06);
-        mouseY = lerp(mouseY, targetMouseY, 0.06);
-
-        // Rotate cloud layer slowly
-        if (window._driftClouds) window._driftClouds(dt);
-
-        // Slowly tumble all debris objects on their own axes
-        tumblingObjects.forEach((obj) => {
-          obj.rotation.x += obj.userData.rotSpeed.x;
-          obj.rotation.y += obj.userData.rotSpeed.y;
-          obj.rotation.z += obj.userData.rotSpeed.z;
-
-          // Slow orbital advance
-          obj.userData.orbitTheta += obj.userData.orbitSpeed;
-          const r = obj.userData.orbitR;
-          const inc = obj.userData.orbitInc;
-          obj.position.x = r * Math.cos(obj.userData.orbitTheta);
-          obj.position.y = r * Math.sin(obj.userData.orbitTheta) * Math.sin(inc);
-          obj.position.z = r * Math.sin(obj.userData.orbitTheta) * Math.cos(inc);
-        });
-
-        // Tumble target satellite slowly
-        targetGroup.rotation.x += dt * 0.12;
-        targetGroup.rotation.y += dt * 0.16;
-
-        // --------------------------------------------------------------------
-        // Camera Stage Interpolation with Smoothstep
-        // --------------------------------------------------------------------
-        const clampedT = Math.max(0, Math.min(cameraStages.length - 1, currentScrollT));
-        const stageIdx = Math.floor(clampedT);
-        const stageFrac = clampedT - stageIdx;
-        const smoothFrac = smoothstep(0, 1, stageFrac);
-
-        const stageA = cameraStages[stageIdx];
-        const stageB = cameraStages[Math.min(cameraStages.length - 1, stageIdx + 1)];
-
-        lerpVec3(stageA.cam, stageB.cam, smoothFrac, targetCamPos);
-        lerpVec3(stageA.look, stageB.look, smoothFrac, targetLookAt);
-
-        // Apply slight pointer parallax to camera
-        targetCamPos.x += mouseX * 0.8;
-        targetCamPos.y -= mouseY * 0.6;
-
-        camera.position.lerp(targetCamPos, 0.08);
-        currentLookAt.lerp(targetLookAt, 0.08);
-        camera.lookAt(currentLookAt);
-
-        // --------------------------------------------------------------------
-        // Capture Sequence Kinematics (Strictly Scroll-Driven)
-        // --------------------------------------------------------------------
-        // Section 3 (Aim & Capture): t from 2.5 to 3.8
-        // Section 4 (Retrieve): t from 3.8 to 4.8
-        const captureProgress = Math.max(0, Math.min(1, (currentScrollT - 2.5) / 1.3)); // 0 to 1 during section 3
-        const retrieveProgress = Math.max(0, Math.min(1, (currentScrollT - 3.8) / 1.0)); // 0 to 1 during section 4
-
-        const machineMouthPos = new THREE.Vector3(0, 0, 1.2).applyMatrix4(machineGroup.matrixWorld);
-        const targetWorldPos = new THREE.Vector3(0, 0, 0).applyMatrix4(targetGroup.matrixWorld);
-
-        if (captureProgress > 0.05 && retrieveProgress < 0.98) {
-          netGroup.visible = true;
-          tetherLine.visible = true;
-
-          let netPos = new THREE.Vector3();
-          let netScale = 1.0;
-
-          if (retrieveProgress <= 0.0) {
-            // Stage 3: Net launches from ejectors (mouth) to target satellite
-            netPos.lerpVectors(machineMouthPos, targetWorldPos, captureProgress);
-            // Net billows open from 0 to full size
-            netScale = 0.15 + (captureProgress * 0.85);
-            netGroup.scale.set(netScale, netScale, netScale);
-            drawstringRing.scale.set(1.0, 1.0, 1.0);
-          } else {
-            // Stage 4: Drawstring cinches tight and winch reels net + target back
-            netPos.lerpVectors(targetWorldPos, machineMouthPos, retrieveProgress);
-            // Drawstring tightens around target (shrink ring)
-            const cinchScale = Math.max(0.42, 1.0 - (retrieveProgress * 0.6));
-            netGroup.scale.set(cinchScale, cinchScale, cinchScale);
-            // Target satellite moves along with the net
-            targetGroup.position.lerpVectors(new THREE.Vector3(0.6, 0.7, 12.8), new THREE.Vector3(-0.6, 0.4, 6.0), retrieveProgress);
-            // Spin winch drum in sync with scroll
-            winchDrum.rotation.x += dt * 8.0;
-          }
-
-          netGroup.position.copy(netPos);
-          netGroup.lookAt(targetWorldPos);
-
-          // Update Tether Cable Line
-          const tPositions = tetherGeom.attributes.position.array;
-          const winchPos = new THREE.Vector3(0, 0, -1.08).applyMatrix4(machineGroup.matrixWorld);
-          tPositions[0] = winchPos.x; tPositions[1] = winchPos.y; tPositions[2] = winchPos.z;
-          tPositions[3] = netPos.x;   tPositions[4] = netPos.y;   tPositions[5] = netPos.z;
-          tetherGeom.attributes.position.needsUpdate = true;
-
-        } else {
-          netGroup.visible = false;
-          tetherLine.visible = false;
-          if (retrieveProgress >= 0.98) {
-            targetGroup.position.set(-0.6, 0.4, 6.0); // Retained at capture machine
-          } else {
-            targetGroup.position.set(0.6, 0.7, 12.8); // Original standoff position
-          }
-        }
-
-        // Scan Cone Visibility & Amber Lock Transition
-        if (currentScrollT >= 1.8 && currentScrollT <= 3.6) {
-          scanCone.visible = true;
-          const lockBlend = smoothstep(2.5, 3.2, currentScrollT);
-          coneMat.color.lerpColors(new THREE.Color(0x7FD1FF), new THREE.Color(0xFFB454), lockBlend);
-          coneMat.opacity = 0.18 + (lockBlend * 0.12);
-        } else {
-          scanCone.visible = false;
-        }
-
-        // --------------------------------------------------------------------
-        // HUD Status & Readout Synchronization
-        // --------------------------------------------------------------------
-        if (hudStageEl && hudLockEl) {
-          if (currentScrollT < 0.8) {
-            hudStageEl.textContent = 'STAGE 0 // ORBITAL SWEEP';
-            hudLockEl.textContent = 'SEARCHING FOR TARGET';
-            hudLockEl.className = 'hud-val sensing';
-          } else if (currentScrollT < 1.8) {
-            hudStageEl.textContent = 'STAGE 1 // ORBITAL CONGESTION';
-            hudLockEl.textContent = 'ESTIMATING COLLISION RISKS';
-            hudLockEl.className = 'hud-val sensing';
-          } else if (currentScrollT < 2.8) {
-            hudStageEl.textContent = 'STAGE 2 // DETECTION & TRACKING';
-            hudLockEl.textContent = '3D KALMAN LOCK ACQUIRED';
-            hudLockEl.className = 'hud-val capture';
-          } else if (currentScrollT < 3.8) {
-            hudStageEl.textContent = 'STAGE 3 // PNEUMATIC NET DEPLOYMENT';
-            hudLockEl.textContent = 'FIRE_READY > NET EJECTION';
-            hudLockEl.className = 'hud-val capture';
-          } else if (currentScrollT < 4.8) {
-            hudStageEl.textContent = 'STAGE 4 // WINCH RETRIEVAL';
-            hudLockEl.textContent = 'DRAWSTRING CINCHED > REELING IN';
-            hudLockEl.className = 'hud-val capture';
-          } else {
-            hudStageEl.textContent = 'STAGE 5 // ARCHITECTURE SPECIFICATION';
-            hudLockEl.textContent = 'SYSTEM BENCHMARKS VALIDATED';
-            hudLockEl.className = 'hud-val sensing';
-          }
-        }
-
-        // Target Lock Label text adapts with scroll stage
-        if (targetHudStateEl) {
-          if (currentScrollT < 2.5) {
-            targetHudStateEl.textContent = 'TRK 07 / LOCKED > AWAITING FIRE';
-          } else if (currentScrollT < 3.8) {
-            targetHudStateEl.textContent = 'TRK 07 / LOCKED > NET OUT > ENVELOPING';
-          } else if (currentScrollT < 4.8) {
-            targetHudStateEl.textContent = 'TRK 07 / CLOSING > WINCH REELING';
-          } else {
-            targetHudStateEl.textContent = 'TRK 07 / RETRIEVED > SECURED';
-          }
-        }
-
-        // --------------------------------------------------------------------
-        // Screen-Projected 2D Tracking Brackets & Callouts
-        // --------------------------------------------------------------------
-        // Debris corner brackets in Hero/Problem stages
-        const showDebrisBrackets = currentScrollT < 1.8;
-        if (tumblingObjects.length >= 3) {
-          projectToScreen(tumblingObjects[0].position, trackerDebris0, showDebrisBrackets);
-          projectToScreen(tumblingObjects[7].position, trackerDebris1, showDebrisBrackets);
-          projectToScreen(tumblingObjects[14].position, trackerDebris2, showDebrisBrackets);
-        }
-
-        // Amber Target Reticle over Derelict Satellite (Stages 2, 3, 4)
-        const showTargetReticle = currentScrollT >= 1.6 && currentScrollT <= 4.9;
-        projectToScreen(targetWorldPos, trackerTarget, showTargetReticle, 0, -32);
-
-        // 4 Subsystem Callouts in Stage 3 (Aim & Capture)
-        const showCallouts = currentScrollT >= 2.6 && currentScrollT <= 3.8;
-        const pSensors = new THREE.Vector3(0, 0.9, 0.5).applyMatrix4(machineGroup.matrixWorld);
-        const pGimbal  = new THREE.Vector3(0, 0.65, 0.45).applyMatrix4(machineGroup.matrixWorld);
-        const pEject   = new THREE.Vector3(0.55, 0.42, 1.2).applyMatrix4(machineGroup.matrixWorld);
-        const pWinch   = new THREE.Vector3(0, 0, -1.08).applyMatrix4(machineGroup.matrixWorld);
-
-        projectToScreen(pSensors, tagSensors, showCallouts, 0, -14);
-        projectToScreen(pGimbal,  tagGimbal,  showCallouts, -120, -10);
-        projectToScreen(pEject,   tagEjectors, showCallouts, 110, 0);
-        projectToScreen(pWinch,   tagWinch,   showCallouts, -90, 20);
-
-        // Render Frame
-        renderer.render(scene, camera);
-      }
-
-      // Start Loop
-      animate();
-
-      // Window Resize Handler
-      window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        updateScrollProgress();
-      });
-
-    })();
-  </script>
 </body>
 </html>
