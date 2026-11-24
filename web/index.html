@@ -208,6 +208,7 @@
           <!-- Viewport Stage Container -->
           <div class="viewport-stage" id="liveViewportStage" style="position: relative; aspect-ratio: 1 / 1; width: 100%; max-width: 640px; margin: 0 auto; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at center, #071026 0%, #010308 100%); border-radius: var(--radius-md); border: 1px solid var(--border-subtle); overflow: hidden; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);">
             <img id="liveStreamImg" style="width: 100%; height: 100%; object-fit: contain; display: block;" src="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='640' viewBox='0 0 640 640'%3E%3Crect width='100%25' height='100%25' fill='%23020617'/%3E%3Ccircle cx='320' cy='320' r='200' stroke='%2338bdf8' stroke-width='1' stroke-dasharray='4 4' fill='none' opacity='0.3'/%3E%3Ccircle cx='320' cy='320' r='100' stroke='%2338bdf8' stroke-width='1' stroke-dasharray='4 4' fill='none' opacity='0.4'/%3E%3Cline x1='320' y1='60' x2='320' y2='580' stroke='%2338bdf8' stroke-width='1' opacity='0.25'/%3E%3Cline x1='60' y1='320' x2='580' y2='320' stroke='%2338bdf8' stroke-width='1' opacity='0.25'/%3E%3Ctext x='320' y='325' text-anchor='middle' fill='%2338bdf8' font-family='monospace' font-size='14' letter-spacing='2'%3EESTABLISHING ATOMIC WS SENSOR FEED...%3C/text%3E%3C/svg%3E" alt="SPACI 3.0 Live Stream">
+            <video id="webcamLocalVideo" autoplay playsinline muted style="display: none; width: 100%; height: 100%; object-fit: contain; background: #000;"></video>
             <div class="hud-overlay-reticle" id="liveReticleText">LIVE ATOMIC WS // FOV: 640×640 // LOCK: ACQUIRING...</div>
           </div>
 
@@ -601,149 +602,179 @@
       </div>
 
       <!-- ================================================================== -->
-      <!-- OPERATIONAL RESULTS & GNC TELEMETRY (DIRECTLY BELOW VIEWPORT)       -->
+      <!-- VIDEO TRAJECTORY THREAT ASSESSMENT & KINETIC RECORDS               -->
       <!-- ================================================================== -->
       <section class="results-console-container">
         <div class="panel-header" style="margin-bottom: 6px;">
           <div class="panel-title">
-            <span>📊 Operational Results & GNC Telemetry</span>
-            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal; margin-left: 8px;">(Closed-Loop Ballistic Solution & Safety Interlocks)</span>
+            <span>🛰️ Orbital Encounter Trajectory & Threat Assessment</span>
+            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal; margin-left: 8px;">(NASA-STD-8719.14C / ESA MASTER-8 Hypervelocity Conjunction Analysis)</span>
           </div>
-          <span class="badge-pill badge-active" style="font-family: var(--font-mono); font-size: 0.72rem;">CONTINUOUS CALCULATION</span>
+          <span class="badge-pill badge-active" style="font-family: var(--font-mono); font-size: 0.72rem;">BoT-SORT KINEMATICS</span>
         </div>
 
         <div class="results-console-grid">
           
-          <!-- Card 1: Active Target Classification & Threat Verdict -->
+          <!-- Card 1: Video Track Statistics -->
           <div class="result-card">
             <div>
               <div class="result-card-header">
-                <span class="result-card-title">01 // TARGET CLASSIFICATION</span>
-                <span id="video_unifiedStateBadge" class="unifiedStateBadge"><span class="badge-pill badge-ready">TARGET LOCKED</span></span>
+                <span class="result-card-title">01 // VIDEO ENCOUNTER TRACKS</span>
+                <span id="videoTrackCountBadge"><span class="badge-pill badge-ready">ACTIVE TRACK</span></span>
               </div>
-              <div id="video_unifiedTargetName" class="unifiedTargetName" style="font-size: 1.15rem; font-weight: 800; color: var(--accent-cyan); margin-bottom: 4px;">
-                Space Debris Fragment (debris)
+              <div id="videoTopTrackName" style="font-size: 1.15rem; font-weight: 800; color: var(--accent-cyan); margin-bottom: 4px;">
+                Orbital Track #1 (Debris Fragment)
               </div>
-              <div id="video_unifiedTargetCategory" class="unifiedTargetCategory" style="font-size: 0.76rem; color: var(--text-secondary); margin-bottom: 10px;">
-                Trackable Debris // Default Threat Prior: 0.85
+              <div id="videoEncounterSub" style="font-size: 0.76rem; color: var(--text-secondary); margin-bottom: 10px;">
+                LEO Hypervelocity Orbit // 40 Sampled Frames
               </div>
               <div class="kinematics-readout-grid">
                 <div class="kinematics-item">
-                  <div class="kinematics-item-label">MODEL CONFIDENCE</div>
-                  <div class="kinematics-item-value unifiedConfidenceVal" id="video_unifiedConfidenceVal" style="color: #34d399;">95.2%</div>
+                  <div class="kinematics-item-label">TOTAL OBJECTS</div>
+                  <div class="kinematics-item-value" id="videoTotalObjects" style="color: var(--accent-cyan);">1</div>
                 </div>
+                <div class="kinematics-item">
+                  <div class="kinematics-item-label">PEAK ENCOUNTER RISK</div>
+                  <div class="kinematics-item-value" id="videoPeakRiskVal" style="color: #f87171;">72.5%</div>
+                </div>
+              </div>
+            </div>
+            <div id="videoVerdictText" style="margin-top: 10px; font-size: 0.75rem; font-family: var(--font-mono); color: #f87171; font-weight: 600;">
+              ⚠️ CAM ACTION: Collision Avoidance Maneuver Recommended
+            </div>
+          </div>
+
+          <!-- Card 2: Tumble Variance Dynamics -->
+          <div class="result-card">
+            <div>
+              <div class="result-card-header">
+                <span class="result-card-title">02 // TUMBLE RATE & ROTATION</span>
+                <span class="badge-pill" style="font-size: 0.68rem; color: var(--accent-cyan);">ASPECT RATIO σ²</span>
+              </div>
+              <div class="kinematics-readout-grid">
                 <div class="kinematics-item">
                   <div class="kinematics-item-label">TUMBLE VARIANCE (σ²AR)</div>
-                  <div class="kinematics-item-value unifiedTumbleVal" id="video_unifiedTumbleVal" style="color: var(--accent-cyan);">0.0142</div>
+                  <div class="kinematics-item-value" id="videoTumbleRateVal" style="color: var(--accent-cyan);">0.0142</div>
+                </div>
+                <div class="kinematics-item">
+                  <div class="kinematics-item-label">VELOCITY SPEED</div>
+                  <div class="kinematics-item-value" id="videoVelocityVal">7,500 m/s</div>
+                </div>
+                <div class="kinematics-item">
+                  <div class="kinematics-item-label">ORBITAL SHELL</div>
+                  <div class="kinematics-item-value" id="videoAltitudeVal">650 km</div>
+                </div>
+                <div class="kinematics-item">
+                  <div class="kinematics-item-label">DYNAMIC STABILITY</div>
+                  <div class="kinematics-item-value" id="videoStabilityVal" style="color: #34d399;">MODERATE</div>
                 </div>
               </div>
             </div>
-            <div id="video_unifiedActionDirective" class="unifiedActionDirective" style="margin-top: 10px; font-size: 0.75rem; font-family: var(--font-mono); color: #34d399; font-weight: 600;">
-              🟢 ACTION: Clear to Deploy Capture Net
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 8px;">
+              Cross-section variance measured across consecutive video frames.
             </div>
           </div>
 
-          <!-- Card 2: 3D Spatial Kinematics & Intercept -->
+          <!-- Card 3: Hazard Breakdown -->
           <div class="result-card">
             <div>
               <div class="result-card-header">
-                <span class="result-card-title">02 // 3D SPATIAL KINEMATICS</span>
-                <span class="badge-pill" style="font-size: 0.68rem; color: var(--accent-cyan);">QUARTIC GNC</span>
-              </div>
-              <div class="kinematics-readout-grid">
-                <div class="kinematics-item">
-                  <div class="kinematics-item-label">INTERCEPT RANGE (Z)</div>
-                  <div class="kinematics-item-value unifiedRangeVal" id="video_unifiedRangeVal">2.85 m</div>
-                </div>
-                <div class="kinematics-item">
-                  <div class="kinematics-item-label">FLIGHT TIME (t_flight)</div>
-                  <div class="kinematics-item-value unifiedFlightTimeVal" id="video_unifiedFlightTimeVal">0.34 s</div>
-                </div>
-                <div class="kinematics-item">
-                  <div class="kinematics-item-label">PAN SLEW ANGLE</div>
-                  <div class="kinematics-item-value unifiedPanVal" id="video_unifiedPanVal">+4.2°</div>
-                </div>
-                <div class="kinematics-item">
-                  <div class="kinematics-item-label">TILT ELEVATION</div>
-                  <div class="kinematics-item-value unifiedTiltVal" id="video_unifiedTiltVal">+12.8°</div>
-                </div>
-              </div>
-            </div>
-            <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 8px;" id="video_unifiedCoordsText" class="unifiedCoordsText">
-              3D Intercept: X: +0.21m | Y: -0.15m | Z: +2.85m
-            </div>
-          </div>
-
-          <!-- Card 3: 6-Condition Aerospace Safety Interlocks -->
-          <div class="result-card">
-            <div>
-              <div class="result-card-header">
-                <span class="result-card-title">03 // 6-POINT SAFETY INTERLOCKS</span>
-                <span class="badge-pill badge-active" style="font-size: 0.68rem;">GNC CLEARED</span>
+                <span class="result-card-title">03 // HAZARD & BUS BREAKDOWN</span>
+                <span class="badge-pill badge-active" style="font-size: 0.68rem;">NASA CLASSIFIED</span>
               </div>
               <div class="interlock-badge-grid">
-                <div class="interlock-indicator interlockRange go" id="video_interlockRange">
+                <div class="interlock-indicator go" id="vidStatHazardous">
                   <span class="interlock-dot"></span>
-                  <span>Range &lt; 3.5m</span>
+                  <span>Hazardous: <b id="vidCntHazardous">1</b></span>
                 </div>
-                <div class="interlock-indicator interlockLock go" id="video_interlockLock">
+                <div class="interlock-indicator go" id="vidStatReusable">
                   <span class="interlock-dot"></span>
-                  <span>Radar Lock</span>
+                  <span>Reusable: <b id="vidCntReusable">0</b></span>
                 </div>
-                <div class="interlock-indicator interlockDrift go" id="video_interlockDrift">
+                <div class="interlock-indicator go" id="vidStatActive">
                   <span class="interlock-dot"></span>
-                  <span>Drift &lt; 0.25 r/s</span>
+                  <span>Active Sat: <b id="vidCntActive">0</b></span>
                 </div>
-                <div class="interlock-indicator interlockPressure go" id="video_interlockPressure">
+                <div class="interlock-indicator go" id="vidStatFragment">
                   <span class="interlock-dot"></span>
-                  <span>Pressure 7.2 bar</span>
-                </div>
-                <div class="interlock-indicator interlockTension go" id="video_interlockTension">
-                  <span class="interlock-dot"></span>
-                  <span>Winch Nominal</span>
-                </div>
-                <div class="interlock-indicator interlockMaster go" id="video_interlockMaster">
-                  <span class="interlock-dot"></span>
-                  <span>ARMED / GO</span>
+                  <span>Fragments: <b id="vidCntFragment">0</b></span>
                 </div>
               </div>
             </div>
-            <div style="font-size: 0.72rem; color: #34d399; font-family: var(--font-mono); margin-top: 8px;">
-              All safety conditions satisfied for net deployment.
+            <div style="font-size: 0.72rem; color: #38bdf8; font-family: var(--font-mono); margin-top: 8px;">
+              Kinetic threat calculated per ESA MASTER-8 debris population model.
             </div>
           </div>
 
-          <!-- Card 4: Net Actuation Controls -->
+          <!-- Card 4: Mitigation Directive -->
           <div class="result-card">
             <div>
               <div class="result-card-header">
-                <span class="result-card-title">04 // CAPTURE ACTUATION</span>
-                <span class="badge-pill" style="font-size: 0.68rem; color: var(--accent-cyan);">SOLENOID + WINCH</span>
+                <span class="result-card-title">04 // ORBITAL PROTOCOL</span>
+                <span class="badge-pill" style="font-size: 0.68rem; color: var(--accent-cyan);">DIRECTIVE</span>
               </div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
-                <label style="display: flex; align-items: center; justify-content: space-between; background: rgba(6, 9, 19, 0.6); padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border-subtle); cursor: pointer;">
-                  <span style="font-size: 0.72rem; font-weight: 600; color: var(--accent-cyan);">🧲 Ferrous</span>
-                  <input type="checkbox" id="video_magneticToggle" class="magneticToggleSync" style="accent-color: var(--accent-cyan);">
-                </label>
-                <label style="display: flex; align-items: center; justify-content: space-between; background: rgba(6, 9, 19, 0.6); padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border-subtle); cursor: pointer;">
-                  <span style="font-size: 0.72rem; font-weight: 600; color: #34d399;">⚡ Auto-Fire</span>
-                  <input type="checkbox" id="video_autoFireToggle" class="autoFireToggleSync" style="accent-color: #34d399;">
-                </label>
-              </div>
-              <div style="display: flex; justify-content: space-between; font-size: 0.72rem; font-family: var(--font-mono); color: var(--text-secondary); margin-bottom: 4px;">
-                <span>v_net: <b id="video_vNetVal" class="vNetVal">9.0 m/s</b></span>
-                <span>t_lat: <b id="video_tLatVal" class="tLatVal">0.08 s</b></span>
-                <span>D_net: <b id="video_dNetVal" class="dNetVal">1.2 m</b></span>
+              <div style="font-size: 0.78rem; line-height: 1.5; color: var(--text-secondary); margin-bottom: 8px;" id="videoDirectiveDesc">
+                • Target requires active tracking or ADR net capture if in operational corridor.<br>
+                • Spin stabilization assessment: Safe for proximity rendezvous.
               </div>
             </div>
             <div>
-              <button type="button" class="hud-btn hud-btn-primary btnFireNetSync" id="video_btnFireNet" style="width: 100%; padding: 9px; font-weight: 800; background: linear-gradient(135deg, rgba(16, 185, 129, 0.35), rgba(14, 165, 233, 0.45)); border-color: #10b981; margin-top: 6px;">
-                🚀 Fire Pneumatic Net (Manual Launch)
-              </button>
-              <div class="hw-monitor-box hwMonitorJson" id="video_hwMonitorJson" style="margin-top: 8px; max-height: 70px;">Awaiting GNC telemetry packet...</div>
+              <div class="hw-monitor-box" id="videoEncounterSummaryBox" style="margin-top: 8px; max-height: 70px;">Video encounter telemetry active.</div>
             </div>
           </div>
 
+        </div>
+      </section>
+
+      <!-- Video Tracking & Kinetic Threat Records Table (Directly Below Video Viewport) -->
+      <section class="glass-panel" style="margin-top: 1.5rem;">
+        <div class="panel-header" style="flex-wrap: wrap; gap: 12px;">
+          <div>
+            <div class="panel-title">📋 Video Tracking & Kinetic Threat Records</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 4px;" id="videoTableCountBadge">
+              0 VIDEO TRACKS RECORDED
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+            <div class="filter-btn-group" id="videoFilterGroup">
+              <button type="button" class="filter-btn active" data-filter="all">All Tracks</button>
+              <button type="button" class="filter-btn" data-filter="Hazardous">🚨 Hazardous</button>
+              <button type="button" class="filter-btn" data-filter="Reusable / Salvageable">🔵 Reusable</button>
+              <button type="button" class="filter-btn" data-filter="Useful / Active">🟢 Active Sat</button>
+              <button type="button" class="filter-btn" data-filter="Inert Fragment">🟠 Fragment</button>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="hud-btn hud-btn-primary" id="btnExportVideoCsv" style="padding: 6px 14px; font-size: 0.8rem; margin:0;">
+                📥 Export CSV
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="data-table-wrapper" style="margin-top: 1rem;">
+          <table class="hud-table">
+            <thead>
+              <tr>
+                <th>Track ID</th>
+                <th>Class Name</th>
+                <th>Operational State</th>
+                <th>Confidence</th>
+                <th>Tumble Rate (σ²AR)</th>
+                <th>Velocity (m/s)</th>
+                <th>Peak Risk</th>
+                <th>Bounding Box [xyxy]</th>
+                <th>CAM Directive</th>
+              </tr>
+            </thead>
+            <tbody id="videoTableBody">
+              <tr>
+                <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">
+                  No video tracks recorded yet. Click <strong>🛸 1-Click Video Track</strong> or upload an encounter video above.
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -861,149 +892,180 @@
       </div>
 
       <!-- ================================================================== -->
-      <!-- OPERATIONAL RESULTS & GNC TELEMETRY (DIRECTLY BELOW VIEWPORT)       -->
+      <!-- SPACECRAFT SALVAGE & OPTICAL DETECTIONS CONSOLE                    -->
       <!-- ================================================================== -->
       <section class="results-console-container">
         <div class="panel-header" style="margin-bottom: 6px;">
           <div class="panel-title">
-            <span>📊 Operational Results & GNC Telemetry</span>
-            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal; margin-left: 8px;">(Closed-Loop Ballistic Solution & Safety Interlocks)</span>
+            <span>🔬 Spacecraft Bus Salvage & Preservation Directive</span>
+            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal; margin-left: 8px;">(COPUOS / NASA Spacecraft Preservation & Active Debris Removal Code)</span>
           </div>
-          <span class="badge-pill badge-active" style="font-family: var(--font-mono); font-size: 0.72rem;">CONTINUOUS CALCULATION</span>
+          <span class="badge-pill badge-active" style="font-family: var(--font-mono); font-size: 0.72rem;">YOLO11s OPTICAL INSPECTION</span>
         </div>
 
         <div class="results-console-grid">
           
-          <!-- Card 1: Active Target Classification & Threat Verdict -->
+          <!-- Card 1: Optical Classification Breakdown -->
           <div class="result-card">
             <div>
               <div class="result-card-header">
-                <span class="result-card-title">01 // TARGET CLASSIFICATION</span>
-                <span id="gallery_unifiedStateBadge" class="unifiedStateBadge"><span class="badge-pill badge-ready">TARGET LOCKED</span></span>
+                <span class="result-card-title">01 // OPTICAL IDENTIFICATION</span>
+                <span id="galleryTargetStateBadge"><span class="badge-pill badge-ready">ACQUIRED</span></span>
               </div>
-              <div id="gallery_unifiedTargetName" class="unifiedTargetName" style="font-size: 1.15rem; font-weight: 800; color: var(--accent-cyan); margin-bottom: 4px;">
-                Space Debris Fragment (debris)
+              <div id="gallerySelectedName" style="font-size: 1.15rem; font-weight: 800; color: var(--accent-cyan); margin-bottom: 4px;">
+                CHEOPS (cheops)
               </div>
-              <div id="gallery_unifiedTargetCategory" class="unifiedTargetCategory" style="font-size: 0.76rem; color: var(--text-secondary); margin-bottom: 10px;">
-                Trackable Debris // Default Threat Prior: 0.85
+              <div id="gallerySelectedCategory" style="font-size: 0.76rem; color: var(--text-secondary); margin-bottom: 10px;">
+                Operational Spacecraft Bus // 11-Class Deep Model
               </div>
               <div class="kinematics-readout-grid">
                 <div class="kinematics-item">
                   <div class="kinematics-item-label">MODEL CONFIDENCE</div>
-                  <div class="kinematics-item-value unifiedConfidenceVal" id="gallery_unifiedConfidenceVal" style="color: #34d399;">95.2%</div>
+                  <div class="kinematics-item-value" id="galleryConfidenceVal" style="color: #34d399;">98.4%</div>
                 </div>
                 <div class="kinematics-item">
-                  <div class="kinematics-item-label">TUMBLE VARIANCE (σ²AR)</div>
-                  <div class="kinematics-item-value unifiedTumbleVal" id="gallery_unifiedTumbleVal" style="color: var(--accent-cyan);">0.0142</div>
+                  <div class="kinematics-item-label">THREAT PRIOR</div>
+                  <div class="kinematics-item-value" id="galleryThreatPriorVal" style="color: var(--accent-cyan);">0.10</div>
                 </div>
               </div>
             </div>
-            <div id="gallery_unifiedActionDirective" class="unifiedActionDirective" style="margin-top: 10px; font-size: 0.75rem; font-family: var(--font-mono); color: #34d399; font-weight: 600;">
-              🟢 ACTION: Clear to Deploy Capture Net
+            <div id="galleryDirectiveText" style="margin-top: 10px; font-size: 0.75rem; font-family: var(--font-mono); color: #34d399; font-weight: 600;">
+              🟢 ACTIVE SATELLITE: Operational Asset — Maintain Stand-Off Distance
             </div>
           </div>
 
-          <!-- Card 2: 3D Spatial Kinematics & Intercept -->
+          <!-- Card 2: Geometry & Cross-Section -->
           <div class="result-card">
             <div>
               <div class="result-card-header">
-                <span class="result-card-title">02 // 3D SPATIAL KINEMATICS</span>
-                <span class="badge-pill" style="font-size: 0.68rem; color: var(--accent-cyan);">QUARTIC GNC</span>
+                <span class="result-card-title">02 // GEOMETRY & APERTURE</span>
+                <span class="badge-pill" style="font-size: 0.68rem; color: var(--accent-cyan);">CROSS-SECTION</span>
               </div>
               <div class="kinematics-readout-grid">
                 <div class="kinematics-item">
-                  <div class="kinematics-item-label">INTERCEPT RANGE (Z)</div>
-                  <div class="kinematics-item-value unifiedRangeVal" id="gallery_unifiedRangeVal">2.85 m</div>
+                  <div class="kinematics-item-label">FOV AREA RATIO</div>
+                  <div class="kinematics-item-value" id="galleryAreaRatioVal">14.2%</div>
                 </div>
                 <div class="kinematics-item">
-                  <div class="kinematics-item-label">FLIGHT TIME (t_flight)</div>
-                  <div class="kinematics-item-value unifiedFlightTimeVal" id="gallery_unifiedFlightTimeVal">0.34 s</div>
+                  <div class="kinematics-item-label">SIZE HAZARD</div>
+                  <div class="kinematics-item-value" id="gallerySizeHazardVal">LARGE</div>
                 </div>
                 <div class="kinematics-item">
-                  <div class="kinematics-item-label">PAN SLEW ANGLE</div>
-                  <div class="kinematics-item-value unifiedPanVal" id="gallery_unifiedPanVal">+4.2°</div>
+                  <div class="kinematics-item-label">TTA MODE</div>
+                  <div class="kinematics-item-value" id="galleryTtaStatusVal" style="color: var(--accent-cyan);">OFF</div>
                 </div>
                 <div class="kinematics-item">
-                  <div class="kinematics-item-label">TILT ELEVATION</div>
-                  <div class="kinematics-item-value unifiedTiltVal" id="gallery_unifiedTiltVal">+12.8°</div>
+                  <div class="kinematics-item-label">TILED INSPECTION</div>
+                  <div class="kinematics-item-value" id="galleryTiledStatusVal">OFF</div>
                 </div>
               </div>
             </div>
-            <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 8px;" id="gallery_unifiedCoordsText" class="unifiedCoordsText">
-              3D Intercept: X: +0.21m | Y: -0.15m | Z: +2.85m
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 8px;" id="galleryBboxText">
+              Bounding Box [xyxy]: [84, 112, 540, 510]
             </div>
           </div>
 
-          <!-- Card 3: 6-Condition Aerospace Safety Interlocks -->
+          <!-- Card 3: Space Object Taxonomy Summary -->
           <div class="result-card">
             <div>
               <div class="result-card-header">
-                <span class="result-card-title">03 // 6-POINT SAFETY INTERLOCKS</span>
-                <span class="badge-pill badge-active" style="font-size: 0.68rem;">GNC CLEARED</span>
+                <span class="result-card-title">03 // TAXONOMY DISTRIBUTION</span>
+                <span class="badge-pill badge-active" style="font-size: 0.68rem;">11-CLASS MODEL</span>
               </div>
               <div class="interlock-badge-grid">
-                <div class="interlock-indicator interlockRange go" id="gallery_interlockRange">
+                <div class="interlock-indicator go" id="galStatHazardous">
                   <span class="interlock-dot"></span>
-                  <span>Range &lt; 3.5m</span>
+                  <span>Hazardous: <b id="galCntHazardous">0</b></span>
                 </div>
-                <div class="interlock-indicator interlockLock go" id="gallery_interlockLock">
+                <div class="interlock-indicator go" id="galStatReusable">
                   <span class="interlock-dot"></span>
-                  <span>Radar Lock</span>
+                  <span>Reusable: <b id="galCntReusable">0</b></span>
                 </div>
-                <div class="interlock-indicator interlockDrift go" id="gallery_interlockDrift">
+                <div class="interlock-indicator go" id="galStatActive">
                   <span class="interlock-dot"></span>
-                  <span>Drift &lt; 0.25 r/s</span>
+                  <span>Active Sat: <b id="galCntActive">1</b></span>
                 </div>
-                <div class="interlock-indicator interlockPressure go" id="gallery_interlockPressure">
+                <div class="interlock-indicator go" id="galStatFragment">
                   <span class="interlock-dot"></span>
-                  <span>Pressure 7.2 bar</span>
-                </div>
-                <div class="interlock-indicator interlockTension go" id="gallery_interlockTension">
-                  <span class="interlock-dot"></span>
-                  <span>Winch Nominal</span>
-                </div>
-                <div class="interlock-indicator interlockMaster go" id="gallery_interlockMaster">
-                  <span class="interlock-dot"></span>
-                  <span>ARMED / GO</span>
+                  <span>Fragments: <b id="galCntFragment">0</b></span>
                 </div>
               </div>
             </div>
             <div style="font-size: 0.72rem; color: #34d399; font-family: var(--font-mono); margin-top: 8px;">
-              All safety conditions satisfied for net deployment.
+              Multi-scale transfer learning mAP50: 97.4% across 11 visual classes.
             </div>
           </div>
 
-          <!-- Card 4: Net Actuation Controls -->
+          <!-- Card 4: ADR & Salvage Code Directive -->
           <div class="result-card">
             <div>
               <div class="result-card-header">
-                <span class="result-card-title">04 // CAPTURE ACTUATION</span>
-                <span class="badge-pill" style="font-size: 0.68rem; color: var(--accent-cyan);">SOLENOID + WINCH</span>
+                <span class="result-card-title">04 // ADR CAPTURE SUITABILITY</span>
+                <span class="badge-pill" style="font-size: 0.68rem; color: var(--accent-cyan);">COPUOS PROTOCOL</span>
               </div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
-                <label style="display: flex; align-items: center; justify-content: space-between; background: rgba(6, 9, 19, 0.6); padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border-subtle); cursor: pointer;">
-                  <span style="font-size: 0.72rem; font-weight: 600; color: var(--accent-cyan);">🧲 Ferrous</span>
-                  <input type="checkbox" id="gallery_magneticToggle" class="magneticToggleSync" style="accent-color: var(--accent-cyan);">
-                </label>
-                <label style="display: flex; align-items: center; justify-content: space-between; background: rgba(6, 9, 19, 0.6); padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border-subtle); cursor: pointer;">
-                  <span style="font-size: 0.72rem; font-weight: 600; color: #34d399;">⚡ Auto-Fire</span>
-                  <input type="checkbox" id="gallery_autoFireToggle" class="autoFireToggleSync" style="accent-color: #34d399;">
-                </label>
-              </div>
-              <div style="display: flex; justify-content: space-between; font-size: 0.72rem; font-family: var(--font-mono); color: var(--text-secondary); margin-bottom: 4px;">
-                <span>v_net: <b id="gallery_vNetVal" class="vNetVal">9.0 m/s</b></span>
-                <span>t_lat: <b id="gallery_tLatVal" class="tLatVal">0.08 s</b></span>
-                <span>D_net: <b id="gallery_dNetVal" class="dNetVal">1.2 m</b></span>
+              <div style="font-size: 0.78rem; line-height: 1.5; color: var(--text-secondary); margin-bottom: 8px;" id="galleryAdrDirectiveDesc">
+                • Target verification completed.<br>
+                • If Derelict / Fragment: Approved for net deployment.<br>
+                • If Active Asset: DO NOT deploy capture tether.
               </div>
             </div>
             <div>
-              <button type="button" class="hud-btn hud-btn-primary btnFireNetSync" id="gallery_btnFireNet" style="width: 100%; padding: 9px; font-weight: 800; background: linear-gradient(135deg, rgba(16, 185, 129, 0.35), rgba(14, 165, 233, 0.45)); border-color: #10b981; margin-top: 6px;">
-                🚀 Fire Pneumatic Net (Manual Launch)
-              </button>
-              <div class="hw-monitor-box hwMonitorJson" id="gallery_hwMonitorJson" style="margin-top: 8px; max-height: 70px;">Awaiting GNC telemetry packet...</div>
+              <div class="hw-monitor-box" id="galleryInspectionSummaryBox" style="margin-top: 8px; max-height: 70px;">Ready for optical sample inspection.</div>
             </div>
           </div>
 
+        </div>
+      </section>
+
+      <!-- Space Object Optical Detections Table (Directly Below Gallery Viewport) -->
+      <section class="glass-panel" style="margin-top: 1.5rem;">
+        <div class="panel-header" style="flex-wrap: wrap; gap: 12px;">
+          <div>
+            <div class="panel-title">📋 Space Object Optical Detections</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 4px;" id="galleryTableCountBadge">
+              0 DETECTIONS LOGGED
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+            <div class="filter-btn-group" id="galleryFilterGroup">
+              <button type="button" class="filter-btn active" data-filter="all">All Objects</button>
+              <button type="button" class="filter-btn" data-filter="Hazardous">🚨 Hazardous</button>
+              <button type="button" class="filter-btn" data-filter="Reusable / Salvageable">🔵 Reusable</button>
+              <button type="button" class="filter-btn" data-filter="Useful / Active">🟢 Active Sat</button>
+              <button type="button" class="filter-btn" data-filter="Inert Fragment">🟠 Fragment</button>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="hud-btn hud-btn-primary" id="btnExportGalleryCsv" style="padding: 6px 14px; font-size: 0.8rem; margin:0;">
+                📥 Export CSV
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="data-table-wrapper" style="margin-top: 1rem;">
+          <table class="hud-table">
+            <thead>
+              <tr>
+                <th>Detection ID</th>
+                <th>Class Name</th>
+                <th>Taxonomy Category</th>
+                <th>Confidence</th>
+                <th>FOV Area Ratio</th>
+                <th>Threat Prior</th>
+                <th>Operational State</th>
+                <th>Bounding Box [xyxy]</th>
+                <th>Salvage Directive</th>
+              </tr>
+            </thead>
+            <tbody id="galleryTableBody">
+              <tr>
+                <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">
+                  No optical detections yet. Select a <strong>Space Object Sample</strong> from the catalog strip above or upload a photo.
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 

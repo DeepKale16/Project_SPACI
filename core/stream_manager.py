@@ -158,6 +158,10 @@ class LiveStreamManager:
             self.webcam_cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
             if not self.webcam_cap.isOpened():
                 self.webcam_cap = cv2.VideoCapture(0)
+            if self.webcam_cap.isOpened():
+                self.webcam_cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                self.webcam_cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                self.webcam_cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
         self.reset_tracker_states()
 
@@ -256,7 +260,6 @@ class LiveStreamManager:
                     iou=0.45,
                     tracker=tracker_arg,
                     device=self.device,
-                    half=self.half,
                     verbose=False,
                 )
 

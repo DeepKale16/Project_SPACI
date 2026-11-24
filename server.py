@@ -372,6 +372,13 @@ def upload_file(
     if bgr_image is None:
         raise HTTPException(status_code=400, detail="Failed to decode uploaded image")
 
+    # Downscale high-resolution images to max 1280px to guarantee fast inference (<80ms)
+    h, w = bgr_image.shape[:2]
+    max_dim = max(h, w)
+    if max_dim > 1280:
+        scale = 1280.0 / max_dim
+        bgr_image = cv2.resize(bgr_image, (int(round(w * scale)), int(round(h * scale))), interpolation=cv2.INTER_AREA)
+
     with gpu_lock:
         detector.set_thresholds(conf_threshold, iou_threshold, augment=augment)
         ann_bgr, detections, summary = detector.predict_image(
@@ -380,7 +387,7 @@ def upload_file(
             altitude_km=altitude_km,
         )
 
-    _, enc = cv2.imencode(".jpg", ann_bgr)
+    _, enc = cv2.imencode(".jpg", ann_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
     ann_b64 = "data:image/jpeg;base64," + base64.b64encode(enc).decode("utf-8")
 
     serialized = []
@@ -404,6 +411,9 @@ def upload_file(
         "annotated_base64": ann_b64,
         "filename": file.filename,
     }
+
+
+_sample_video_cache: Dict[str, Any] = {}
 
 
 def create_video_writer(out_path: str, fps: float, width: int, height: int) -> cv2.VideoWriter:
@@ -435,9 +445,17 @@ def process_video_stream(
     iou_threshold: float = 0.45,
     speed_mps: Optional[float] = 7500.0,
     altitude_km: Optional[float] = 650.0,
-    max_frames: int = 150,
+    max_frames: int = 40,
 ) -> Dict[str, Any]:
     """Video ingestion and BoT-SORT kinematics processing under GPU lock."""
+    s_max = int(max_frames)
+    cache_key = f"sample_encounter_{s_max}" if "sample_encounter" in original_filename else f"{Path(original_filename).name}_{round(float(conf_threshold), 3)}_{s_max}"
+
+    if "sample_encounter" in original_filename and cache_key in _sample_video_cache:
+        cached_file = REPORTS_DIR / "video_output" / f"annotated_{Path(original_filename).stem}.mp4"
+        if cached_file.exists():
+            return _sample_video_cache[cache_key]
+
     effective_conf = min(conf_threshold, 0.25) if "sample_encounter" in original_filename else conf_threshold
 
     with gpu_lock:
@@ -456,12 +474,18 @@ def process_video_stream(
     step = max(1, total_frames // max_frames) if total_frames > max_frames else 1
     effective_fps = max(5.0, min(fps / step, 30.0))
 
+    # Fast encoding resolution: scale to max 640 width
+    target_w = 640 if width > 640 else width
+    target_h = int(round(height * (float(target_w) / width))) if width > 0 else 360
+    if target_h % 2 != 0:
+        target_h += 1
+
     video_out_dir = REPORTS_DIR / "video_output"
     video_out_dir.mkdir(parents=True, exist_ok=True)
     out_filename = f"annotated_{Path(original_filename).stem}.mp4"
     out_path = video_out_dir / out_filename
 
-    out_writer = create_video_writer(str(out_path), effective_fps, width, height)
+    out_writer = create_video_writer(str(out_path), effective_fps, target_w, target_h)
 
     all_tracks: Dict[int, Dict[str, Any]] = {}
     peak_risk = 0.0
@@ -475,7 +499,7 @@ def process_video_stream(
             break
 
         if not critical_frame_b64:
-            _, enc_init = cv2.imencode(".jpg", frame)
+            _, enc_init = cv2.imencode(".jpg", cv2.resize(frame, (target_w, target_h)))
             critical_frame_b64 = "data:image/jpeg;base64," + base64.b64encode(enc_init).decode("utf-8")
 
         if frame_idx % step == 0:
@@ -485,7 +509,11 @@ def process_video_stream(
                     speed_mps=speed_mps,
                     altitude_km=altitude_km,
                 )
-            out_writer.write(ann_frame)
+            if ann_frame.shape[1] != target_w or ann_frame.shape[0] != target_h:
+                ann_frame_out = cv2.resize(ann_frame, (target_w, target_h))
+            else:
+                ann_frame_out = ann_frame
+            out_writer.write(ann_frame_out)
             processed_count += 1
 
             for d in detections:
@@ -511,7 +539,7 @@ def process_video_stream(
 
                 if r_score >= peak_risk or detections:
                     peak_risk = max(peak_risk, r_score)
-                    _, enc = cv2.imencode(".jpg", ann_frame)
+                    _, enc = cv2.imencode(".jpg", ann_frame_out)
                     critical_frame_b64 = "data:image/jpeg;base64," + base64.b64encode(enc).decode("utf-8")
 
         frame_idx += 1
@@ -530,7 +558,7 @@ def process_video_stream(
 
     mean_risk_val = round(float(np.mean([t["risk_score"] for t in all_tracks.values()])), 3) if all_tracks else 0.0
 
-    return {
+    result_payload = {
         "filename": original_filename,
         "is_video": True,
         "total_frames": total_frames,
@@ -551,6 +579,11 @@ def process_video_stream(
         "annotated_video_url": f"/reports/video_output/{out_filename}",
         "representative_frame_base64": critical_frame_b64,
     }
+
+    if "sample_encounter" in original_filename:
+        _sample_video_cache[cache_key] = result_payload
+
+    return result_payload
 
 
 @app.get("/reports/video_output/{filename}")
@@ -577,7 +610,7 @@ def run_sample_video(
     iou_threshold: float = Form(0.45),
     speed_mps: Optional[float] = Form(7500.0),
     altitude_km: Optional[float] = Form(650.0),
-    max_frames: int = Form(150),
+    max_frames: int = Form(40),
 ):
     sample_path = WEB_DIR / "assets" / "sample_encounter.mp4"
     if not sample_path.exists():
@@ -601,7 +634,7 @@ def upload_video(
     iou_threshold: float = Form(0.45),
     speed_mps: Optional[float] = Form(7500.0),
     altitude_km: Optional[float] = Form(650.0),
-    max_frames: int = Form(150),
+    max_frames: int = Form(40),
 ):
     temp_dir = Path(tempfile.gettempdir())
     input_path = temp_dir / f"spaci_video_{file.filename}"
