@@ -261,56 +261,73 @@ function initCockpitSourceSwitcher() {
 function updateUnifiedResults(data) {
   if (!data) return;
 
-  const nameEl = document.getElementById("unifiedTargetName");
-  const stateBadgeEl = document.getElementById("unifiedStateBadge");
-  const confEl = document.getElementById("unifiedConfidenceVal");
-  const tumbleEl = document.getElementById("unifiedTumbleVal");
-  const directiveEl = document.getElementById("unifiedActionDirective");
-  const categoryEl = document.getElementById("unifiedTargetCategory");
-
-  const rangeEl = document.getElementById("unifiedRangeVal");
-  const flightEl = document.getElementById("unifiedFlightTimeVal");
-  const panEl = document.getElementById("unifiedPanVal");
-  const tiltEl = document.getElementById("unifiedTiltVal");
-  const coordsEl = document.getElementById("unifiedCoordsText");
-
-  const ilRange = document.getElementById("interlockRange");
-  const ilLock = document.getElementById("interlockLock");
-  const ilDrift = document.getElementById("interlockDrift");
-  const ilMaster = document.getElementById("interlockMaster");
-
-  if (nameEl && data.name) nameEl.textContent = data.name;
-  if (stateBadgeEl && data.state) stateBadgeEl.innerHTML = getStateBadgeHtml(data.state);
-  if (confEl && data.confidence !== undefined) confEl.textContent = `${Math.round(data.confidence * 100)}%`;
-  if (tumbleEl && data.tumble !== undefined) tumbleEl.textContent = Number(data.tumble).toFixed(4);
-  if (categoryEl && data.category) categoryEl.textContent = data.category;
-  if (directiveEl && data.directive) {
-    directiveEl.textContent = data.directive;
-    directiveEl.style.color = data.directiveColor || "#34d399";
+  // 1. Synchronize text and readouts across all results consoles (Live, Video, Gallery)
+  if (data.name) {
+    document.querySelectorAll(".unifiedTargetName").forEach(el => el.textContent = data.name);
+  }
+  if (data.state) {
+    const badgeHtml = getStateBadgeHtml(data.state);
+    document.querySelectorAll(".unifiedStateBadge").forEach(el => el.innerHTML = badgeHtml);
+  }
+  if (data.confidence !== undefined) {
+    const confStr = `${Math.round(data.confidence * 100)}%`;
+    document.querySelectorAll(".unifiedConfidenceVal").forEach(el => el.textContent = confStr);
+  }
+  if (data.tumble !== undefined) {
+    const tumStr = Number(data.tumble).toFixed(4);
+    document.querySelectorAll(".unifiedTumbleVal").forEach(el => el.textContent = tumStr);
+  }
+  if (data.category) {
+    document.querySelectorAll(".unifiedTargetCategory").forEach(el => el.textContent = data.category);
+  }
+  if (data.directive) {
+    document.querySelectorAll(".unifiedActionDirective").forEach(el => {
+      el.textContent = data.directive;
+      el.style.color = data.directiveColor || "#34d399";
+    });
   }
 
-  if (rangeEl && data.rangeZ !== undefined) rangeEl.textContent = `${Number(data.rangeZ).toFixed(2)} m`;
-  if (flightEl && data.flightTime !== undefined) flightEl.textContent = `${Number(data.flightTime).toFixed(2)} s`;
-  if (panEl && data.pan !== undefined) panEl.textContent = `${data.pan > 0 ? '+' : ''}${Number(data.pan).toFixed(1)}°`;
-  if (tiltEl && data.tilt !== undefined) tiltEl.textContent = `${data.tilt > 0 ? '+' : ''}${Number(data.tilt).toFixed(1)}°`;
-  if (coordsEl && data.x !== undefined && data.y !== undefined && data.z !== undefined) {
-    coordsEl.textContent = `3D Intercept: X: ${Number(data.x).toFixed(2)}m | Y: ${Number(data.y).toFixed(2)}m | Z: ${Number(data.z).toFixed(2)}m`;
+  if (data.rangeZ !== undefined) {
+    const rStr = `${Number(data.rangeZ).toFixed(2)} m`;
+    document.querySelectorAll(".unifiedRangeVal").forEach(el => el.textContent = rStr);
+  }
+  if (data.flightTime !== undefined) {
+    const fStr = `${Number(data.flightTime).toFixed(2)} s`;
+    document.querySelectorAll(".unifiedFlightTimeVal").forEach(el => el.textContent = fStr);
+  }
+  if (data.pan !== undefined) {
+    const pStr = `${data.pan > 0 ? '+' : ''}${Number(data.pan).toFixed(1)}°`;
+    document.querySelectorAll(".unifiedPanVal").forEach(el => el.textContent = pStr);
+  }
+  if (data.tilt !== undefined) {
+    const tStr = `${data.tilt > 0 ? '+' : ''}${Number(data.tilt).toFixed(1)}°`;
+    document.querySelectorAll(".unifiedTiltVal").forEach(el => el.textContent = tStr);
+  }
+  if (data.x !== undefined && data.y !== undefined && data.z !== undefined) {
+    const cStr = `3D Intercept: X: ${Number(data.x).toFixed(2)}m | Y: ${Number(data.y).toFixed(2)}m | Z: ${Number(data.z).toFixed(2)}m`;
+    document.querySelectorAll(".unifiedCoordsText").forEach(el => el.textContent = cStr);
   }
 
-  // Update 6 Aerospace Interlocks
+  // 2. Synchronize 6-Condition Aerospace Safety Interlocks across all consoles
   const rangeOk = (data.rangeZ || 2.85) <= 3.5;
   const lockOk = Boolean(data.lockAcquired !== false);
   const driftOk = (data.tumble || 0.014) <= 0.25;
+  const isReady = rangeOk && lockOk && driftOk;
 
-  if (ilRange) ilRange.className = `interlock-indicator ${rangeOk ? 'go' : 'nogo'}`;
-  if (ilLock) ilLock.className = `interlock-indicator ${lockOk ? 'go' : 'nogo'}`;
-  if (ilDrift) ilDrift.className = `interlock-indicator ${driftOk ? 'go' : 'nogo'}`;
-  if (ilMaster) {
-    const isReady = rangeOk && lockOk && driftOk;
-    ilMaster.className = `interlock-indicator ${isReady ? 'go' : 'nogo'}`;
-    const txt = ilMaster.querySelector("span:last-child");
+  document.querySelectorAll(".interlockRange").forEach(el => {
+    el.className = `interlock-indicator interlockRange ${rangeOk ? 'go' : 'nogo'}`;
+  });
+  document.querySelectorAll(".interlockLock").forEach(el => {
+    el.className = `interlock-indicator interlockLock ${lockOk ? 'go' : 'nogo'}`;
+  });
+  document.querySelectorAll(".interlockDrift").forEach(el => {
+    el.className = `interlock-indicator interlockDrift ${driftOk ? 'go' : 'nogo'}`;
+  });
+  document.querySelectorAll(".interlockMaster").forEach(el => {
+    el.className = `interlock-indicator interlockMaster ${isReady ? 'go' : 'nogo'}`;
+    const txt = el.querySelector("span:last-child");
     if (txt) txt.textContent = isReady ? "ARMED / GO" : "INTERLOCK HOLD";
-  }
+  });
 }
 
 const TAB_METADATA = {
@@ -403,19 +420,6 @@ function initTabs() {
 }
 
 function switchTab(tabId) {
-  if (tabId === "tabVideo") {
-    tabId = "tabLive";
-    state.setCockpitSource?.("VIDEO");
-  } else if (tabId === "tabGallery") {
-    tabId = "tabLive";
-    state.setCockpitSource?.("CATALOG");
-  } else if (tabId === "tabTelemetry") {
-    tabId = "tabLive";
-    setTimeout(() => {
-      document.getElementById("telemetryTableBody")?.scrollIntoView({ behavior: "smooth" });
-    }, 150);
-  }
-
   if (!TAB_METADATA[tabId]) return;
   state.activeTab = tabId;
 
@@ -508,15 +512,40 @@ function initLiveWebSocket() {
   connect();
 }
 
+// Global throttles and rAF handles for 60 FPS silky-smooth rendering
+let lastLiveDomUpdate = 0;
+let pendingRadarState = null;
+let radarRafScheduled = false;
+
 function handleLivePacket(packet) {
   state.lastLivePacket = packet;
-  // 1. Update Video Frame
+
+  // 1. Update Video Frame immediately
   const streamImg = document.getElementById("liveStreamImg");
   if (streamImg && packet.frame_b64) {
     streamImg.src = packet.frame_b64;
   }
 
-  // 2. Update Performance Badges
+  // 2. Schedule radar canvas redraw locked to display refresh rate
+  if (packet.radar_state) {
+    pendingRadarState = packet.radar_state;
+    if (!radarRafScheduled) {
+      radarRafScheduled = true;
+      requestAnimationFrame(() => {
+        radarRafScheduled = false;
+        if (pendingRadarState) renderTacticalRadar(pendingRadarState);
+      });
+    }
+  }
+
+  // 3. Throttle DOM text and layout reflows to 10 Hz (every 100ms) to eliminate main thread lag
+  const now = performance.now();
+  if (now - lastLiveDomUpdate < 100) {
+    return;
+  }
+  lastLiveDomUpdate = now;
+
+  // 4. Update Badges & FPS text
   const fpsPill = document.getElementById("liveFpsPill");
   if (fpsPill) {
     fpsPill.textContent = `LIVE: ${packet.fps} FPS // ${packet.latency_ms} ms`;
@@ -527,7 +556,7 @@ function handleLivePacket(packet) {
     depthBadge.textContent = `${packet.depth_source} (3D FUSION)`;
   }
 
-  // 3. Update GNC Verdict Banner
+  // 5. Update GNC Verdict Banner
   const gnc = packet.gnc_command;
   state.lastGncCommand = gnc;
 
@@ -571,18 +600,13 @@ function handleLivePacket(packet) {
     }
   }
 
-  // 4. Update Hardware Bus Monitor
-  const hwMon = document.getElementById("hwMonitorJson");
-  if (hwMon && gnc) {
-    hwMon.textContent = JSON.stringify(gnc, null, 2);
+  // 6. Update Hardware Monitor across all instances
+  if (gnc) {
+    const gncStr = JSON.stringify(gnc, null, 2);
+    document.querySelectorAll(".hwMonitorJson").forEach(el => el.textContent = gncStr);
   }
 
-  // 5. Draw Tactical Trajectory Radar
-  if (packet.radar_state) {
-    renderTacticalRadar(packet.radar_state);
-  }
-
-  // 6. Update Top KPIs if in Ground Mode
+  // 7. Update Top KPIs if in Ground Mode
   if (state.missionMode === "GROUND_DEMONSTRATOR") {
     const tCount = packet.tracks?.length || 0;
     const k1 = document.getElementById("kpiTotal");
@@ -601,8 +625,8 @@ function handleLivePacket(packet) {
     }
   }
 
-  // 7. Update Unified Results Console (Shown directly below viewport)
-  if (!state.cockpitSource || state.cockpitSource === "LIVE") {
+  // 8. Update Unified Results Console
+  if (state.activeTab === "tabLive") {
     const lockedTid = packet.locked_track_id || gnc?.track_id;
     const targetObj = packet.tracks?.find(t => t.track_id === lockedTid) || packet.tracks?.[0];
     const zInt = gnc?.intercept_pos ? gnc.intercept_pos[2] : (targetObj?.z_m || 2.85);
@@ -875,25 +899,42 @@ function initLiveControls() {
     });
   }
 
-  // Manual Fire Button
-  const btnFire = document.getElementById("btnFireNet");
-  if (btnFire) {
-    btnFire.addEventListener("click", async () => {
-      try {
-        const res = await fetch("/api/kpi/fire", { method: "POST" });
-        const data = await res.json();
-        if (data.status === "fired") {
-          updateKpiSummary();
-          const trial = data.trial;
-          alert(`🎯 PNEUMATIC NET FIRED!\n\nTarget: ${trial.target_class}\nOutcome: ${trial.capture_success ? "✅ CAPTURED" : "❌ MISSED"}\n3D Miss Error: ${trial.miss_error_cm} cm\nEffective Net Radius: ${trial.effective_radius_cm} cm`);
-        } else {
-          alert(`Launch Notice: ${data.message}`);
-        }
-      } catch (err) {
-        alert("Launch command failed: " + err.message);
+  // Manual Fire Buttons (synced across all consoles)
+  const fireNetAction = async () => {
+    try {
+      const res = await fetch("/api/kpi/fire", { method: "POST" });
+      const data = await res.json();
+      if (data.status === "fired") {
+        updateKpiSummary();
+        const trial = data.trial;
+        alert(`🎯 PNEUMATIC NET FIRED!\n\nTarget: ${trial.target_class}\nOutcome: ${trial.capture_success ? "✅ CAPTURED" : "❌ MISSED"}\n3D Miss Error: ${trial.miss_error_cm} cm\nEffective Net Radius: ${trial.effective_radius_cm} cm`);
+      } else {
+        alert(`Launch Notice: ${data.message}`);
       }
+    } catch (err) {
+      alert("Launch command failed: " + err.message);
+    }
+  };
+
+  document.querySelectorAll(".btnFireNetSync").forEach(btn => btn.addEventListener("click", fireNetAction));
+  const btnFire = document.getElementById("btnFireNet");
+  if (btnFire) btnFire.addEventListener("click", fireNetAction);
+
+  // Sync checkboxes across consoles
+  document.querySelectorAll(".magneticToggleSync").forEach(tog => {
+    tog.addEventListener("change", (e) => {
+      state.magneticAssist = e.target.checked;
+      document.querySelectorAll(".magneticToggleSync").forEach(t => t.checked = state.magneticAssist);
+      syncParams();
     });
-  }
+  });
+  document.querySelectorAll(".autoFireToggleSync").forEach(tog => {
+    tog.addEventListener("change", (e) => {
+      state.autoFire = e.target.checked;
+      document.querySelectorAll(".autoFireToggleSync").forEach(t => t.checked = state.autoFire);
+      syncParams();
+    });
+  });
 }
 
 async function updateKpiSummary() {
@@ -1296,6 +1337,8 @@ async function loadSample(sample) {
 function initFileUploads() {
   const btnUploadVideo = document.getElementById("btnUploadVideo");
   const videoInput = document.getElementById("videoInput");
+  const videoDropzone = document.getElementById("videoDropzone");
+
   if (btnUploadVideo && videoInput) {
     btnUploadVideo.addEventListener("click", () => videoInput.click());
     videoInput.addEventListener("change", (e) => {
@@ -1306,14 +1349,70 @@ function initFileUploads() {
     });
   }
 
+  if (videoDropzone) {
+    videoDropzone.addEventListener("click", (e) => {
+      if (e.target.tagName !== "BUTTON") {
+        videoInput?.click();
+      }
+    });
+    ["dragenter", "dragover"].forEach(evt => {
+      videoDropzone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        videoDropzone.classList.add("dragover");
+      });
+    });
+    ["dragleave", "drop"].forEach(evt => {
+      videoDropzone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        videoDropzone.classList.remove("dragover");
+      });
+    });
+    videoDropzone.addEventListener("drop", (e) => {
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleVideoFile(e.dataTransfer.files[0]);
+      }
+    });
+  }
+
   const btnUploadImage = document.getElementById("btnUploadImage");
   const imageInput = document.getElementById("imageInput");
+  const imageDropzone = document.getElementById("imageDropzone");
+
   if (btnUploadImage && imageInput) {
     btnUploadImage.addEventListener("click", () => imageInput.click());
     imageInput.addEventListener("change", (e) => {
       if (e.target.files && e.target.files.length > 0) {
         handleImageFile(e.target.files[0]);
         imageInput.value = "";
+      }
+    });
+  }
+
+  if (imageDropzone) {
+    imageDropzone.addEventListener("click", (e) => {
+      if (e.target.tagName !== "BUTTON") {
+        imageInput?.click();
+      }
+    });
+    ["dragenter", "dragover"].forEach(evt => {
+      imageDropzone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        imageDropzone.classList.add("dragover");
+      });
+    });
+    ["dragleave", "drop"].forEach(evt => {
+      imageDropzone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        imageDropzone.classList.remove("dragover");
+      });
+    });
+    imageDropzone.addEventListener("drop", (e) => {
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleImageFile(e.dataTransfer.files[0]);
       }
     });
   }
@@ -1676,6 +1775,16 @@ function updateTelemetryTable() {
     `;
     tableBody.appendChild(tr);
   });
+
+  // Also sync to dedicated Telemetry tab table if present
+  const tabTableBody = document.getElementById("tabTelemetryTableBody");
+  const tabCountBadge = document.getElementById("telemetryCountBadge");
+  if (tabTableBody) {
+    tabTableBody.innerHTML = tableBody.innerHTML;
+  }
+  if (tabCountBadge && countBadge) {
+    tabCountBadge.textContent = countBadge.textContent;
+  }
 }
 
 function getStateBadgeHtml(state) {
@@ -1694,9 +1803,13 @@ function getStateBadgeHtml(state) {
 function initExports() {
   const btnCsv = document.getElementById("btnExportCsv");
   if (btnCsv) btnCsv.addEventListener("click", exportCsv);
+  const btnCsv2 = document.getElementById("btnExportCsv2");
+  if (btnCsv2) btnCsv2.addEventListener("click", exportCsv);
 
   const btnJson = document.getElementById("btnExportJson");
   if (btnJson) btnJson.addEventListener("click", exportJson);
+  const btnJson2 = document.getElementById("btnExportJson2");
+  if (btnJson2) btnJson2.addEventListener("click", exportJson);
 }
 
 function exportCsv() {

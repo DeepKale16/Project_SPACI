@@ -21,8 +21,8 @@ def verify_all():
     req_hud = urllib.request.urlopen("http://localhost:8080/hud")
     assert req_hud.status == 200, f"GET /hud failed with status {req_hud.status}"
     hud_html = req_hud.read().decode("utf-8")
-    assert "Unified Mission Control Cockpit" in hud_html or "spaci_logo.svg" in hud_html, "GET /hud does not serve Mission Control HUD!"
-    print(" [OK] GET /hud -> 200 OK (Serves Unified Mission Control HUD)")
+    assert "Real-Time Live & GNC" in hud_html or "spaci_logo.svg" in hud_html, "GET /hud does not serve Mission Control HUD!"
+    print(" [OK] GET /hud -> 200 OK (Serves Dedicated Mission Control HUD)")
 
     req_logo = urllib.request.urlopen("http://localhost:8080/assets/spaci_logo.svg")
     assert req_logo.status == 200, "Vector logo /assets/spaci_logo.svg not found!"
@@ -71,101 +71,124 @@ def verify_all():
         btn_next = page_landing.locator("#btnNextStage")
         assert btn_next.is_visible(), "Stage dock button #btnNextStage not visible!"
         btn_next.click()
-        page_landing.wait_for_timeout(800)
+        page_landing.wait_for_timeout(600)
+        btn_next.click()
+        page_landing.wait_for_timeout(600)
         btn_next.click()
         page_landing.wait_for_timeout(800)
-        btn_next.click()
-        page_landing.wait_for_timeout(1000)
 
         page_landing.screenshot(path="reports/verified_landing_capture.png")
         print(" [OK] Advanced to Stage 3 (Capture) and verified 4-slug net throwing sequence.")
 
         page_landing.close()
 
-        # --- B. Test Unified Mission Control HUD (/hud) ---
-        print("\nTesting Unified Mission Control HUD at http://localhost:8080/hud...")
+        # --- B. Test Dedicated Mission Control HUD (/hud) ---
+        print("\nTesting Dedicated Mission Control HUD at http://localhost:8080/hud...")
         page_hud = context.new_page()
         page_hud.on("console", lambda msg: console_errors.append(f"[HUD Console {msg.type}] {msg.text}") if msg.type == "error" else None)
         page_hud.on("pageerror", lambda err: page_errors.append(f"[HUD Error] {err}"))
 
         page_hud.goto("http://localhost:8080/hud", wait_until="load", timeout=12000)
-        page_hud.wait_for_timeout(2500)
+        page_hud.wait_for_timeout(2000)
 
         # Check header logo
         hud_logo_href = page_hud.locator("header.hud-header .brand-wrapper a").get_attribute("href")
         print(f" [OK] HUD header logo link: '{hud_logo_href}' (navigates back to Landing Page)")
         assert hud_logo_href == "/", f"Expected HUD logo link to be '/', got '{hud_logo_href}'"
 
-        # Check Source Switcher Buttons
-        btn_src_live = page_hud.locator("#btnSourceLive")
-        btn_src_video = page_hud.locator("#btnSourceVideo")
-        btn_src_catalog = page_hud.locator("#btnSourceCatalog")
-        assert btn_src_live.is_visible() and btn_src_video.is_visible() and btn_src_catalog.is_visible(), "Source switcher buttons missing!"
-        print(" [OK] Source switcher buttons [ Live ] [ Video ] [ Catalog ] are active.")
+        # Check Top Navigation Tabs
+        tab_btns = page_hud.locator(".tabs-nav .tab-btn")
+        tab_count = tab_btns.count()
+        print(f" [OK] Top navigation tabs rendered: {tab_count} dedicated tabs.")
+        assert tab_count == 7, f"Expected 7 dedicated tabs, got {tab_count}"
 
-        # Check Results Console (Shown directly below viewports)
-        results_container = page_hud.locator(".results-console-container")
-        assert results_container.is_visible(), "Results console container not visible below viewports!"
-        print(" [OK] Operational Results & GNC Telemetry Console is visible directly below viewports.")
+        # 1. Verify Tab 1 (Real-Time Live & GNC)
+        tab_live = page_hud.locator("#tabLive")
+        assert tab_live.is_visible(), "Tab panel #tabLive is not visible!"
+        results_live = tab_live.locator(".results-console-container")
+        assert results_live.is_visible(), "Results console container not visible in Tab 1!"
+        print(" [OK] Tab 1 (Real-Time Live & GNC): Viewports and Results Console verified directly below.")
 
-        # Test switching to Catalog Samples
-        print(" -> Clicking [ 📸 Catalog Samples (11 Classes) ]...")
-        btn_src_catalog.click()
-        page_hud.wait_for_timeout(1500)
+        # 2. Verify Tab 2 (Orbital Video Tracking & Upload)
+        print(" -> Switching to Tab 2: Orbital Video Tracking & Upload...")
+        page_hud.locator("#tabBtnVideo").click()
+        page_hud.wait_for_timeout(1000)
 
-        gallery_strip = page_hud.locator("#galleryStrip")
-        assert gallery_strip.is_visible(), "Catalog shelf #galleryStrip not visible in CATALOG mode!"
+        tab_video = page_hud.locator("#tabVideo")
+        assert tab_video.is_visible(), "Tab panel #tabVideo is not visible!"
+        video_dropzone = tab_video.locator("#videoDropzone")
+        assert video_dropzone.is_visible(), "Video Dropzone #videoDropzone not visible in Tab 2!"
+        assert tab_video.locator("#btnUploadVideo").is_visible(), "Upload Video button not visible in Tab 2!"
+        assert tab_video.locator("#btnDemoVideo").is_visible(), "1-Click Video Track button not visible in Tab 2!"
+        results_video = tab_video.locator(".results-console-container")
+        assert results_video.is_visible(), "Results console container not visible in Tab 2!"
+        print(" [OK] Tab 2 (Orbital Video Tracking & Upload): Dropzone, Upload buttons, and Results Console verified directly below.")
+
+        # 3. Verify Tab 3 (Space Object Photo & Catalog)
+        print(" -> Switching to Tab 3: Space Object Photo & Catalog...")
+        page_hud.locator("#tabBtnGallery").click()
+        page_hud.wait_for_timeout(1200)
+
+        tab_gallery = page_hud.locator("#tabGallery")
+        assert tab_gallery.is_visible(), "Tab panel #tabGallery is not visible!"
+        img_dropzone = tab_gallery.locator("#imageDropzone")
+        assert img_dropzone.is_visible(), "Photo Dropzone #imageDropzone not visible in Tab 3!"
+        assert tab_gallery.locator("#btnUploadImage").is_visible(), "Upload Photo button not visible in Tab 3!"
+        
+        gallery_strip = tab_gallery.locator("#galleryStrip")
+        assert gallery_strip.is_visible(), "Catalog strip #galleryStrip not visible in Tab 3!"
         cards = gallery_strip.locator(".gallery-card")
         card_count = cards.count()
-        print(f" [OK] Loaded {card_count} space object catalog samples in the inspection strip.")
+        print(f" [OK] Loaded {card_count} space object catalog samples in the photo inspection strip.")
         assert card_count >= 10, f"Expected 11 catalog samples, found {card_count}"
 
         # Click a card to trigger instant inference and result update
         cards.nth(0).click()
         page_hud.wait_for_timeout(1500)
 
-        target_name = page_hud.locator("#unifiedTargetName").inner_text()
-        conf_val = page_hud.locator("#unifiedConfidenceVal").inner_text()
-        print(f" [OK] Unified Results Updated: Target='{target_name}', Confidence='{conf_val}'")
+        results_gallery = tab_gallery.locator(".results-console-container")
+        assert results_gallery.is_visible(), "Results console container not visible in Tab 3!"
+        target_name = results_gallery.locator(".unifiedTargetName").inner_text()
+        conf_val = results_gallery.locator(".unifiedConfidenceVal").inner_text()
+        print(f" [OK] Tab 3 (Photo & Catalog): Inference verified! Target='{target_name}', Conf='{conf_val}', Results Console visible directly below.")
 
-        # Check Safety Interlocks indicators
-        interlocks = page_hud.locator(".interlock-indicator")
-        assert interlocks.count() == 6, f"Expected 6 safety interlocks, found {interlocks.count()}"
-        print(f" [OK] All 6 Aerospace Safety Interlocks rendered and evaluating Go/No-Go conditions.")
+        # 4. Verify Tab 4 (Telemetry & Trials Table)
+        print(" -> Switching to Tab 4: Telemetry & Trials Table...")
+        page_hud.locator("#tabBtnTelemetry").click()
+        page_hud.wait_for_timeout(800)
+        tab_telem = page_hud.locator("#tabTelemetry")
+        assert tab_telem.is_visible(), "Tab panel #tabTelemetry is not visible!"
+        print(" [OK] Tab 4 (Telemetry & Trials Table) verified.")
 
-        # Check Telemetry Table
-        table_body = page_hud.locator("#telemetryTableBody")
-        assert table_body.is_visible(), "Telemetry table not visible below results!"
-        print(" [OK] Flight Telemetry and Detections Log Table is visible directly below results.")
+        # 5. Switch back to Tab 1
+        page_hud.locator("#tabBtnLive").click()
+        page_hud.wait_for_timeout(600)
 
-        # Switch to Orbital Video Kinematics
-        print(" -> Clicking [ 🎬 Orbital Video Kinematics ]...")
-        btn_src_video.click()
-        page_hud.wait_for_timeout(1000)
-        assert page_hud.locator("#cockpitVideoShelf").is_visible(), "Video controls shelf not visible in VIDEO mode!"
-
-        # Switch back to Live Sensor
-        print(" -> Clicking [ 📡 Live Sensor Feed ]...")
-        btn_src_live.click()
-        page_hud.wait_for_timeout(1000)
-        assert page_hud.locator("#cockpitLiveShelf").is_visible(), "Live controls shelf not visible in LIVE mode!"
-
-        page_hud.screenshot(path="reports/verified_unified_cockpit.png")
-        print(" [OK] Saved reports/verified_unified_cockpit.png")
-
+        page_hud.screenshot(path="reports/verified_hud_workspace.png")
+        print(" [OK] Captured verified HUD workspace screenshot.")
         page_hud.close()
         browser.close()
 
-    print("\n--- 3. Error Log Summary ---")
-    print(f" Console Errors: {len(console_errors)}")
-    for ce in console_errors:
-        print("  ", ce)
-    print(f" Page Uncaught Errors: {len(page_errors)}")
-    for pe in page_errors:
-        print("  ", pe)
+    # 3. Error Analysis
+    print("\n--- 3. Error Analysis ---")
+    if console_errors:
+        print(f" [WARN] Console Errors ({len(console_errors)}):")
+        for err in console_errors:
+            print("  ", err)
+    else:
+        print(" [OK] 0 Console Errors encountered.")
 
-    assert len(page_errors) == 0, f"Encountered {len(page_errors)} uncaught page errors!"
-    print("\n>>> ALL VERIFICATION CHECKS PASSED WITH ZERO ERRORS! <<<")
+    if page_errors:
+        print(f" [ERROR] Uncaught Page Errors ({len(page_errors)}):")
+        for err in page_errors:
+            print("  ", err)
+        sys.exit(1)
+    else:
+        print(" [OK] 0 Uncaught Page Errors encountered.")
+
+    print("\n================================================================")
+    print(" ALL VERIFICATIONS PASSED: 100% OPERATIONAL & VERIFIED")
+    print("================================================================")
 
 if __name__ == "__main__":
     verify_all()
