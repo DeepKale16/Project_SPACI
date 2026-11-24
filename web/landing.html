@@ -389,9 +389,8 @@
 
 <!-- Top Fixed Header -->
 <header class="nav">
-  <a class="logo" href="#s0">
-    <span>SPACI</span>
-    <span class="badge-sub">RESEARCH DEMONSTRATOR</span>
+  <a class="logo" href="/" title="SPACI Autonomous Space Debris Capture Demonstrator">
+    <img src="/assets/spaci_logo.svg" alt="SPACI" style="height: 38px; width: auto; max-width: 210px; display: block;">
   </a>
   <div class="nav-links">
     <a class="hide" href="#s1">Problem</a>
@@ -399,7 +398,7 @@
     <a class="hide" href="#s3">Capture</a>
     <a class="hide" href="#s4">Retrieve</a>
     <a href="#s5">The Machine</a>
-    <a class="btn gh" href="/" title="Launch SPACI Mission Control HUD">Mission Control HUD &rarr;</a>
+    <a class="btn gh" href="/hud" title="Launch SPACI Mission Control HUD">Mission Control HUD &rarr;</a>
     <a class="btn pri" href="#contact">Collaborate</a>
   </div>
 </header>
@@ -832,6 +831,64 @@
   scene.add(earth);
 
   /* ------------------------------------------------------------------------
+     Tactical Orbital Reference Rings & Latitude Grids (LEO Shelves & Grid)
+     ------------------------------------------------------------------------ */
+  var earthDetailGroup = new THREE.Group();
+  earthDetailGroup.rotation.copy(earth.rotation);
+  scene.add(earthDetailGroup);
+
+  function createTacticalLatRing(degLat, colorHex, opacityVal, isDashed) {
+    var rad = degLat * Math.PI / 180;
+    var r = Math.cos(rad) * 1.018;
+    var y = Math.sin(rad) * 1.018;
+    var pts = [];
+    var segments = 128;
+    for (var i = 0; i <= segments; i++) {
+      var a = (i / segments) * Math.PI * 2;
+      pts.push(new THREE.Vector3(Math.cos(a) * r, y, Math.sin(a) * r));
+    }
+    var geo = new THREE.BufferGeometry().setFromPoints(pts);
+    var mat;
+    if (isDashed) {
+      mat = new THREE.LineDashedMaterial({ color: colorHex, dashSize: 0.02, gapSize: 0.02, transparent: true, opacity: opacityVal, depthWrite: false });
+    } else {
+      mat = new THREE.LineBasicMaterial({ color: colorHex, transparent: true, opacity: opacityVal, depthWrite: false });
+    }
+    var line = new THREE.Line(geo, mat);
+    if (isDashed) line.computeLineDistances();
+    return line;
+  }
+
+  // Equator (0°), Tropics (±23.5°), Arctic Circle (66.5°)
+  earthDetailGroup.add(createTacticalLatRing(0, 0x7fd1ff, 0.35, true));
+  earthDetailGroup.add(createTacticalLatRing(23.5, 0x4a90e2, 0.22, true));
+  earthDetailGroup.add(createTacticalLatRing(-23.5, 0x4a90e2, 0.22, true));
+  earthDetailGroup.add(createTacticalLatRing(66.5, 0x7fd1ff, 0.18, true));
+
+  // LEO Altitude Reference Shells (400km ISS, 800km Debris Dense, 1200km Graveyard)
+  function createLEOAltitudeRing(altKm, colorHex, opacityVal, tiltX, tiltZ) {
+    var r = 1.0 + (altKm / 6371.0); // Earth radius ~ 6371 km
+    var pts = [];
+    var segments = 180;
+    for (var i = 0; i <= segments; i++) {
+      var a = (i / segments) * Math.PI * 2;
+      pts.push(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r));
+    }
+    var geo = new THREE.BufferGeometry().setFromPoints(pts);
+    var mat = new THREE.LineDashedMaterial({ color: colorHex, dashSize: 0.035, gapSize: 0.025, transparent: true, opacity: opacityVal, depthWrite: false });
+    var line = new THREE.Line(geo, mat);
+    line.computeLineDistances();
+    line.rotation.set(tiltX, 0, tiltZ);
+    return line;
+  }
+
+  var leoRingsGroup = new THREE.Group();
+  leoRingsGroup.add(createLEOAltitudeRing(400, 0x7fd1ff, 0.45, 0.45, 0.2));  // LEO 400km (Cyan)
+  leoRingsGroup.add(createLEOAltitudeRing(800, 0xffb454, 0.55, 1.42, -0.3)); // LEO 800km Dense Debris (Amber)
+  leoRingsGroup.add(createLEOAltitudeRing(1200, 0x9fb2d6, 0.30, -0.65, 0.5)); // LEO 1200km (Subtle ice)
+  scene.add(leoRingsGroup);
+
+  /* ------------------------------------------------------------------------
      Cloud Sphere (radius 1.012): Lit by the Sun with Twilight Glow
      ------------------------------------------------------------------------ */
   var cloudsMat = new THREE.ShaderMaterial({
@@ -926,7 +983,7 @@
     sunSpr.scale.set(28, 28, 1); sunSpr.position.copy(SUN).multiplyScalar(75); scene.add(sunSpr);
   })();
 
-  window.__spaci = { scene: scene, camera: camera, renderer: renderer, earth: earth, earthMat: earthMat, clouds: clouds, cloudsMat: cloudsMat, reduce: reduce, THREE: THREE, SUN: SUN, sr: sr, sunSpr: sunSpr, orbits: [], meshes: [], trackable: [] };
+  window.__spaci = { scene: scene, camera: camera, renderer: renderer, earth: earth, earthMat: earthMat, clouds: clouds, cloudsMat: cloudsMat, reduce: reduce, THREE: THREE, SUN: SUN, sr: sr, sunSpr: sunSpr, orbits: [], meshes: [], trackable: [], earthDetailGroup: earthDetailGroup, leoRingsGroup: leoRingsGroup };
 })();
 </script>
 
@@ -1263,10 +1320,36 @@
   });
   net.lookAt(stationP);
 
+  /* 4 Ejected Corner Slugs & Tracer Guide Lines */
+  var cornerSlugs = [];
+  var tracerLines = [];
+  var barrelLocs = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(function(c) {
+    return new THREE.Vector3(c[0] * 0.021, c[1] * 0.021, 0.073);
+  });
+
+  var slugMat = new THREE.MeshStandardMaterial({ color: 0xffb454, metalness: 0.9, roughness: 0.2 });
+  var tracerMat = new THREE.LineBasicMaterial({ color: 0xffa034, transparent: true, opacity: 0.85 });
+
+  for (var si = 0; si < 4; si++) {
+    var slugGroup = new THREE.Group();
+    var sMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.016, 10), slugMat);
+    sMesh.rotation.x = Math.PI / 2;
+    slugGroup.add(sMesh);
+    var sGlow = new THREE.Mesh(new THREE.SphereGeometry(0.007, 8, 8), glowAm);
+    slugGroup.add(sGlow);
+    scene.add(slugGroup);
+    cornerSlugs.push(slugGroup);
+
+    var tGeo = new THREE.BufferGeometry().setFromPoints([stationP.clone(), P.clone()]);
+    var tLine = new THREE.Line(tGeo, tracerMat);
+    scene.add(tLine);
+    tracerLines.push(tLine);
+  }
+
   var tether = new THREE.Line(new THREE.BufferGeometry().setFromPoints([stationP.clone(), P.clone()]), new THREE.LineBasicMaterial({ color: 0xffb454, transparent: true, opacity: 0.75 }));
   scene.add(tether);
 
-  Object.assign(S0, { S: S, Tn: Tn, Up: Up, stationP: stationP, P: P, dirST: dirST, len: len, st: st, head: head, anchors: anchors, drum: drum, lamp: lamp, tg: tg, targetModels: targetModels, hal: hal, cone: cone, wire: wire, coneM: coneM, pathL: pathL, net: net, netM: netM, ringL: ringL, tether: tether });
+  Object.assign(S0, { S: S, Tn: Tn, Up: Up, stationP: stationP, P: P, dirST: dirST, len: len, st: st, head: head, anchors: anchors, drum: drum, lamp: lamp, tg: tg, targetModels: targetModels, hal: hal, cone: cone, wire: wire, coneM: coneM, pathL: pathL, net: net, netM: netM, ringL: ringL, tether: tether, cornerSlugs: cornerSlugs, tracerLines: tracerLines, barrelLocs: barrelLocs });
 })();
 </script>
 
@@ -1452,10 +1535,12 @@
     camera.position.copy(cp); camera.position.x += mx * 0.3; camera.position.y += -my * 0.2;
     camera.up.set(0, 1, 0); camera.lookAt(cLook);
 
-    /* Planetary Rotation */
+    /* Planetary Rotation & Tactical Rings */
     var cloudDrift = tm * 0.0035 * sp;
     S0.earthMat.uniforms.uCloudOffset.value = cloudDrift;
     S0.cloudsMat.uniforms.uCloudOffset.value = cloudDrift;
+    if (S0.earthDetailGroup) S0.earthDetailGroup.rotation.y = S0.earth.rotation.y;
+    if (S0.leoRingsGroup) S0.leoRingsGroup.rotation.y += dt * 0.05 * sp;
     S0.orbits.forEach(function(o) { o.inner.rotation.y += o.sp * dt * sp; });
     S0.meshes.forEach(function(m) { m.rotation.x += m.userData.spin.x * dt * sp; m.rotation.y += m.userData.spin.y * dt * sp; });
 
@@ -1466,30 +1551,68 @@
       tmItem.rotation.z += dt * 0.24 * sp;
     });
 
-    /* Kinematic Net Launch, Target Enveloping, Cinching, and Reeling */
+    /* Kinematic 4-Slug Pneumatic Net Throw, Billowing, Wrapping, Cinching, and Winch Reeling */
     var show = sm(1.3, 2.0, tt) * (1 - sm(4.7, 5.0, tt));
-    var open = sm(2.85, 3.6, tt), close = sm(3.95, 4.45, tt), pull = sm(4.4, 4.95, tt);
-    var nsc = (0.04 + 0.96 * open) * (1 - 0.8 * close);
-    S0.net.scale.setScalar(Math.max(0.02, nsc));
-    S0.net.visible = open > 0.01;
-    S0.netM.opacity = 0.85 * cl(open * 3, 0, 1);
-    S0.ringL.material.opacity = 0.9 * cl(open * 3, 0, 1) * (1 + close * 0.1);
+    var fire = sm(2.70, 3.45, tt);
+    var wrap = sm(3.40, 3.85, tt);
+    var cinch = sm(3.85, 4.40, tt);
+    var reel = sm(4.40, 4.95, tt);
 
-    var go = open, back = pull;
-    var tgp = P.clone().lerp(front, back);
-    var npos = front.clone().lerp(tgp, go);
-    S0.net.position.copy(npos); S0.net.lookAt(stationP);
+    // Target satellite motion and reeling trajectory
+    var tgp = P.clone().lerp(front, reel);
+    S0.tg.position.copy(tgp.clone().add(Up.clone().multiplyScalar(Math.sin(tm * 1.2) * 0.003 * (1 - reel))));
 
-    // Target satellite motion and tumbling
-    S0.tg.position.copy(tgp.add(Up.clone().multiplyScalar(Math.sin(tm * 1.2) * 0.003 * (1 - pull))));
+    // Net mesh position and dynamic billowing shape
+    var netPos = front.clone().lerp(tgp, fire);
+    S0.net.position.copy(netPos);
+    S0.net.lookAt(stationP);
 
-    // Tether update
+    var nScale = (0.05 + 0.95 * fire) * (1 - 0.72 * cinch);
+    S0.net.scale.setScalar(Math.max(0.02, nScale));
+    S0.net.visible = fire > 0.02;
+    S0.netM.opacity = 0.9 * cl(fire * 3.5, 0, 1);
+    S0.ringL.material.opacity = 0.95 * cl(fire * 3.5, 0, 1) * (1 - 0.4 * cinch);
+
+    // 4 Corner Projectile Slugs & Guide Tracer Lines
+    var signs = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+    for (var si = 0; si < 4; si++) {
+      var slug = S0.cornerSlugs[si];
+      var tracer = S0.tracerLines[si];
+      var bLocal = S0.barrelLocs[si].clone();
+      var bWorld = S0.st.localToWorld(bLocal.clone());
+
+      // Target corner location as net billows outward
+      var cornerSpread = 0.23 * fire * (1 - 0.65 * cinch);
+      var cOffset = Tn.clone().multiplyScalar(signs[si][0] * cornerSpread)
+        .add(Up.clone().multiplyScalar(signs[si][1] * cornerSpread));
+      
+      // Wrapping phase curls slugs slightly behind the debris
+      if (wrap > 0.01) {
+        var wrapDepth = dirST.clone().multiplyScalar(wrap * 0.045);
+        cOffset.add(wrapDepth);
+      }
+
+      var slugDest = tgp.clone().add(cOffset);
+      var sPos = bWorld.clone().lerp(slugDest, fire);
+      slug.position.copy(sPos);
+      slug.visible = fire > 0.03;
+
+      // Update amber tracer propellant line from barrel to slug
+      var tPosAttr = tracer.geometry.attributes.position;
+      tPosAttr.setXYZ(0, bWorld.x, bWorld.y, bWorld.z);
+      tPosAttr.setXYZ(1, sPos.x, sPos.y, sPos.z);
+      tPosAttr.needsUpdate = true;
+      tracer.visible = fire > 0.05 && reel < 0.95;
+      tracer.material.opacity = 0.85 * (1 - cinch * 0.6);
+    }
+
+    // Dyneema Tether line update from rear winch drum to drawstring ring
     var tp2 = S0.tether.geometry.attributes.position;
     tp2.setXYZ(0, front.x, front.y, front.z);
-    tp2.setXYZ(1, npos.x, npos.y, npos.z);
+    tp2.setXYZ(1, netPos.x, netPos.y, netPos.z);
     tp2.needsUpdate = true;
-    S0.tether.visible = open > 0.05;
-    S0.drum.rotation.x = (open * 6 + pull * -9) * 1.3;
+    S0.tether.visible = fire > 0.05;
+    S0.drum.rotation.x = (fire * 6.0 + reel * -16.0);
 
     var cc = 1 - 0.65 * sm(3.2, 3.8, tt);
     S0.coneM.opacity = 0.09 * show * cc;
@@ -1513,7 +1636,13 @@
     tags.forEach(function(t) { place(t.el, t.a.getWorldPosition(wp), tagA); });
 
     var spd = 412 + Math.round(Math.sin(tm * 2.1) * 6);
-    var phase = tt < 3.0 ? 'LOCKED' : tt < 3.9 ? 'NET OUT' : tt < 4.5 ? 'CLOSING' : 'RETRIEVED';
+    var phase = 'LOCKED';
+    if (tt < 2.7) phase = 'LOCKED';
+    else if (tt < 3.2) phase = '4x PNEUMATIC EJECTION';
+    else if (tt < 3.8) phase = 'NET ENVELOPING TARGET';
+    else if (tt < 4.4) phase = 'DRAWSTRING CINCHED';
+    else if (tt < 4.95) phase = 'WINCH REELING (412 mm/s)';
+    else phase = 'TARGET RETRIEVED';
     if (rTt && rTt.firstChild) rTt.firstChild.nodeValue = 'TRK 07 / ' + phase;
 
     var idx = Math.min(Math.round(tt), 5);

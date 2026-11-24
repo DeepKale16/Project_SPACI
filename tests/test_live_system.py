@@ -7,12 +7,19 @@ from pathlib import Path
 
 def test_rest():
     print("=== 1. Verifying HTTP REST Endpoints ===")
-    # 1. GET /
+    # 1. GET / (3D Info Landing Page)
     req = urllib.request.urlopen("http://localhost:8080/")
     assert req.status == 200, f"GET / failed: {req.status}"
     html = req.read().decode("utf-8")
-    assert "SPACI" in html and "radarXz" in html, "HUD HTML missing SPACI/radar components"
-    print(" [OK] GET / -> 200 OK, HTML loaded successfully")
+    assert "SPACI" in html, "Landing page HTML missing SPACI"
+    print(" [OK] GET / -> 200 OK, 3D Landing Page loaded successfully")
+
+    # 1b. GET /hud (Mission Control HUD)
+    req_hud = urllib.request.urlopen("http://localhost:8080/hud")
+    assert req_hud.status == 200, f"GET /hud failed: {req_hud.status}"
+    hud_html = req_hud.read().decode("utf-8")
+    assert "SPACI" in hud_html and "radarXz" in hud_html, "HUD HTML missing SPACI/radar components"
+    print(" [OK] GET /hud -> 200 OK, Mission Control HUD loaded successfully")
 
     # 2. GET /api/mode
     req = urllib.request.urlopen("http://localhost:8080/api/mode")

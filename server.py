@@ -127,19 +127,23 @@ SAMPLE_CATALOG = [
 # -----------------------------------------------------------------------------
 
 @app.get("/")
-async def serve_index():
-    """Serves the main HTML5 dashboard."""
-    index_file = WEB_DIR / "index.html"
-    return FileResponse(str(index_file))
-
-
 @app.get("/landing")
 async def serve_landing():
-    """Serves the scroll-driven 3D landing page."""
+    """Serves the primary 3D Info & Overview presentation page."""
     landing_file = WEB_DIR / "landing.html"
     if not landing_file.exists():
         raise HTTPException(status_code=404, detail="Landing page not found")
     return FileResponse(str(landing_file))
+
+
+@app.get("/hud")
+@app.get("/app")
+async def serve_hud():
+    """Serves the operational Mission Control HUD workspace."""
+    index_file = WEB_DIR / "index.html"
+    if not index_file.exists():
+        raise HTTPException(status_code=404, detail="Mission Control HUD not found")
+    return FileResponse(str(index_file))
 
 
 @app.get("/api/samples")
