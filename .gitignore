@@ -50,3 +50,5 @@ htmlcov/
 # Temporary / OS
 .DS_Store
 Thumbs.db
+~$*
+reference_report/
