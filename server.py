@@ -128,6 +128,7 @@ SAMPLE_CATALOG = [
 
 @app.get("/")
 @app.get("/landing")
+@app.get("/landing.html")
 async def serve_landing():
     """Serves the primary 3D Info & Overview presentation page."""
     landing_file = WEB_DIR / "landing.html"
@@ -138,6 +139,7 @@ async def serve_landing():
 
 @app.get("/hud")
 @app.get("/app")
+@app.get("/index.html")
 async def serve_hud():
     """Serves the operational Mission Control HUD workspace."""
     index_file = WEB_DIR / "index.html"

@@ -782,25 +782,31 @@
     '  vec3 V = normalize(vViewPosition);',
     '  vec3 L = normalize((viewMatrix * vec4(uSun, 0.0)).xyz);',
     '  float d = dot(N, L);',
-    '  float day = smoothstep(-0.08, 0.22, d);',
+    '  float day = smoothstep(-0.06, 0.20, d);',
     '  vec3 dayColor = pow(texture2D(tDay, vUv).rgb, vec3(2.2));',
     '  float water = texture2D(tWater, vUv).r;',
-    '  vec2 cloudUv = vec2(fract(vUv.x + uCloudOffset - L.x * 0.0035), vUv.y - L.y * 0.002);',
+    '  vec2 cloudUv = vec2(fract(vUv.x + uCloudOffset - L.x * 0.003), vUv.y - L.y * 0.0018);',
     '  float cloudShadow = texture2D(tClouds, cloudUv).r;',
-    '  float surfaceShadow = 1.0 - cloudShadow * 0.55 * day;',
-    '  vec3 lit = dayColor * (max(d, 0.0) * 1.85 + 0.02) * surfaceShadow;',
+    '  float surfaceShadow = 1.0 - cloudShadow * 0.50 * day;',
+    '  // Sunlit surface (deep space contrast: zero ambient bleed on dark side)',
+    '  vec3 lit = dayColor * (max(d, 0.0) * 1.95) * surfaceShadow;',
+    '  // High-power ocean specular glint and grazing Fresnel reflection',
     '  vec3 H = normalize(L + V);',
     '  float ndoth = max(dot(N, H), 0.0);',
-    '  float spec = pow(ndoth, 130.0) * water * day * 1.5;',
-    '  float specBroad = pow(ndoth, 16.0) * water * day * 0.18;',
-    '  lit += vec3(1.0, 0.95, 0.85) * (spec + specBroad) * surfaceShadow;',
-    '  float twilight = smoothstep(0.0, 0.20, d) * smoothstep(0.42, 0.08, d);',
-    '  lit += vec3(1.0, 0.44, 0.16) * (twilight * 0.48) * (1.0 - water * 0.4);',
+    '  float spec = pow(ndoth, 220.0) * water * day * 3.2;',
+    '  float specBroad = pow(ndoth, 24.0) * water * day * 0.35;',
+    '  float fresnelWater = pow(1.0 - max(dot(N, V), 0.0), 4.0) * water * day * 0.40;',
+    '  lit += (vec3(1.0, 0.96, 0.88) * (spec + specBroad) + vec3(0.45, 0.72, 1.0) * fresnelWater) * surfaceShadow;',
+    '  // Rayleigh atmospheric horizon scattering on surface',
+    '  float limb = pow(1.0 - max(dot(N, V), 0.0), 3.2);',
+    '  lit += vec3(0.25, 0.62, 1.0) * (limb * day * 1.15);',
+    '  // Warm golden-amber sunset transition along twilight terminator',
+    '  float sunset = smoothstep(-0.04, 0.12, d) * smoothstep(0.28, 0.02, d);',
+    '  lit += vec3(1.0, 0.45, 0.14) * (sunset * 0.55) * (1.0 - water * 0.5);',
+    '  // City night lights masked strictly to landmasses (oceans pitch black at night)',
     '  vec3 nightColor = pow(texture2D(tNight, vUv).rgb, vec3(2.2));',
-    '  float nightMask = smoothstep(0.06, -0.15, d);',
-    '  lit += nightColor * (nightMask * 4.2);',
-    '  float rim = pow(1.0 - max(dot(N, V), 0.0), 3.0);',
-    '  lit += vec3(0.20, 0.54, 1.0) * rim * (0.12 + 0.88 * day) * 1.35;',
+    '  float nightMask = smoothstep(0.04, -0.14, d);',
+    '  lit += nightColor * (nightMask * 4.2) * (1.0 - water * 0.95);',
     '  gl_FragColor = vec4(pow(lit, vec3(1.0 / 2.2)), 1.0);',
     '}'
   ].join('\n');
@@ -831,39 +837,11 @@
   scene.add(earth);
 
   /* ------------------------------------------------------------------------
-     Tactical Orbital Reference Rings & Latitude Grids (LEO Shelves & Grid)
+     Tactical Reference Group (Clean Natural Globe without On-Globe Wireframe)
      ------------------------------------------------------------------------ */
   var earthDetailGroup = new THREE.Group();
   earthDetailGroup.rotation.copy(earth.rotation);
   scene.add(earthDetailGroup);
-
-  function createTacticalLatRing(degLat, colorHex, opacityVal, isDashed) {
-    var rad = degLat * Math.PI / 180;
-    var r = Math.cos(rad) * 1.018;
-    var y = Math.sin(rad) * 1.018;
-    var pts = [];
-    var segments = 128;
-    for (var i = 0; i <= segments; i++) {
-      var a = (i / segments) * Math.PI * 2;
-      pts.push(new THREE.Vector3(Math.cos(a) * r, y, Math.sin(a) * r));
-    }
-    var geo = new THREE.BufferGeometry().setFromPoints(pts);
-    var mat;
-    if (isDashed) {
-      mat = new THREE.LineDashedMaterial({ color: colorHex, dashSize: 0.02, gapSize: 0.02, transparent: true, opacity: opacityVal, depthWrite: false });
-    } else {
-      mat = new THREE.LineBasicMaterial({ color: colorHex, transparent: true, opacity: opacityVal, depthWrite: false });
-    }
-    var line = new THREE.Line(geo, mat);
-    if (isDashed) line.computeLineDistances();
-    return line;
-  }
-
-  // Equator (0°), Tropics (±23.5°), Arctic Circle (66.5°)
-  earthDetailGroup.add(createTacticalLatRing(0, 0x7fd1ff, 0.35, true));
-  earthDetailGroup.add(createTacticalLatRing(23.5, 0x4a90e2, 0.22, true));
-  earthDetailGroup.add(createTacticalLatRing(-23.5, 0x4a90e2, 0.22, true));
-  earthDetailGroup.add(createTacticalLatRing(66.5, 0x7fd1ff, 0.18, true));
 
   // LEO Altitude Reference Shells (400km ISS, 800km Debris Dense, 1200km Graveyard)
   function createLEOAltitudeRing(altKm, colorHex, opacityVal, tiltX, tiltZ) {
@@ -934,14 +912,14 @@
     cloudsMat.uniforms.tClouds.value = t;
   });
 
-  var clouds = new THREE.Mesh(new THREE.SphereGeometry(1.012, 128, 96), cloudsMat);
+  var clouds = new THREE.Mesh(new THREE.SphereGeometry(1.006, 128, 96), cloudsMat);
   clouds.rotation.copy(earth.rotation);
   scene.add(clouds);
 
   /* ------------------------------------------------------------------------
-     Atmosphere Rim Shell (radius 1.115): Rayleigh Blue + Terminator Warm Glow
+     Atmosphere Rim Shell (radius 1.025): Razor-thin Rayleigh Blue + Terminator Warm Glow
      ------------------------------------------------------------------------ */
-  var atmo = new THREE.Mesh(new THREE.SphereGeometry(1.115, 96, 64), new THREE.ShaderMaterial({
+  var atmo = new THREE.Mesh(new THREE.SphereGeometry(1.025, 128, 96), new THREE.ShaderMaterial({
     transparent: true,
     side: THREE.BackSide,
     blending: THREE.AdditiveBlending,
@@ -958,16 +936,20 @@
       '}'
     ].join('\n'),
     fragmentShader: [
+      'precision highp float;',
       'uniform vec3 uSun;',
       'varying vec3 vN, vV, vW;',
       'void main() {',
       '  float d = abs(dot(normalize(vN), normalize(vV)));',
-      '  float i = pow(clamp(d / 0.36, 0.0, 1.0), 2.3) * (1.0 - smoothstep(0.36, 0.92, d));',
+      '  // Razor-thin Rayleigh atmospheric limb peaking right at grazing angle',
+      '  float i = pow(clamp(d / 0.16, 0.0, 1.0), 2.4) * (1.0 - smoothstep(0.16, 0.82, d));',
       '  float s = dot(vW, normalize(uSun));',
-      '  float lit = smoothstep(-0.35, 0.45, s);',
-      '  vec3 c = mix(vec3(0.08, 0.22, 0.55), vec3(0.26, 0.60, 1.0), lit);',
-      '  c = mix(c, vec3(1.0, 0.48, 0.22), smoothstep(0.32, -0.05, abs(s)) * 0.5 * lit);',
-      '  gl_FragColor = vec4(c * i * 1.35 * (0.2 + 0.8 * lit), 1.0);',
+      '  float lit = smoothstep(-0.25, 0.40, s);',
+      '  // Vibrant Rayleigh scattering (azure/cyan day, deep blue night, warm sunset along terminator)',
+      '  vec3 c = mix(vec3(0.05, 0.18, 0.45), vec3(0.32, 0.68, 1.0), lit);',
+      '  float sunsetGlow = smoothstep(0.28, -0.06, abs(s)) * lit;',
+      '  c = mix(c, vec3(1.0, 0.48, 0.18), sunsetGlow * 0.65);',
+      '  gl_FragColor = vec4(c * (i * 2.1) * (0.15 + 0.85 * lit), 1.0);',
       '}'
     ].join('\n')
   }));

@@ -139,39 +139,39 @@ function initModeSwitcher() {
 
 function updateTopKpiLabels() {
   const isGround = state.missionMode === "GROUND_DEMONSTRATOR";
-  const c1 = document.querySelector("#kpiCardTotal .kpi-label");
-  const c2 = document.querySelector("#kpiCardHazardous .kpi-label");
-  const c3 = document.querySelector("#kpiCardReusable .kpi-label");
-  const c4 = document.querySelector("#kpiCardActive .kpi-label");
-  const c5 = document.querySelector("#kpiCardRisk .kpi-label");
+  const l1 = document.getElementById("liveLblTotal");
+  const l2 = document.getElementById("liveLblHazardous");
+  const l3 = document.getElementById("liveLblReusable");
+  const l4 = document.getElementById("liveLblActive");
+  const l5 = document.getElementById("liveLblRisk");
 
-  const s1 = document.querySelector("#kpiCardTotal .kpi-sub");
-  const s2 = document.querySelector("#kpiCardHazardous .kpi-sub");
-  const s3 = document.querySelector("#kpiCardReusable .kpi-sub");
-  const s4 = document.querySelector("#kpiCardActive .kpi-sub");
-  const s5 = document.querySelector("#kpiCardRisk .kpi-sub");
+  const s1 = document.getElementById("liveSubTotal");
+  const s2 = document.getElementById("liveSubHazardous");
+  const s3 = document.getElementById("liveSubReusable");
+  const s4 = document.getElementById("liveSubActive");
+  const s5 = document.getElementById("liveSubRisk");
 
   if (isGround) {
-    if (c1) c1.textContent = "Tracked Targets";
+    if (l1) l1.textContent = "Tracked Targets";
     if (s1) s1.textContent = "Continuous Radar Track";
-    if (c2) c2.textContent = "GNC Gate Status";
+    if (l2) l2.textContent = "GNC Gate Status";
     if (s2) s2.textContent = "6-Condition Safety Interlock";
-    if (c3) c3.textContent = "Deployment Distance";
+    if (l3) l3.textContent = "Deployment Distance";
     if (s3) s3.textContent = "Quartic Ballistic Solution";
-    if (c4) c4.textContent = "Capture Success Rate";
+    if (l4) l4.textContent = "Capture Success Rate";
     if (s4) s4.textContent = "SQLite Trials Validation";
-    if (c5) c5.textContent = "3D Miss Error";
+    if (l5) l5.textContent = "3D Miss Error";
     if (s5) s5.textContent = "Fused Sensor Residual";
   } else {
-    if (c1) c1.textContent = "Field of View Targets";
+    if (l1) l1.textContent = "Field of View Targets";
     if (s1) s1.textContent = "Total Objects in Sight";
-    if (c2) c2.textContent = "Hazardous Threat";
+    if (l2) l2.textContent = "Hazardous Threat";
     if (s2) s2.textContent = "CAM Trigger (Risk > 0.60)";
-    if (c3) c3.textContent = "Reusable / Salvage";
+    if (l3) l3.textContent = "Reusable / Salvage";
     if (s3) s3.textContent = "Serviceable Spacecraft Bus";
-    if (c4) c4.textContent = "Useful / Active";
+    if (l4) l4.textContent = "Useful / Active";
     if (s4) s4.textContent = "Operational Satellite Asset";
-    if (c5) c5.textContent = "Mean Risk Index";
+    if (l5) l5.textContent = "Mean Risk Index";
     if (s5) s5.textContent = "0.0 (Safe) → 1.0 (Critical)";
   }
 }
@@ -610,22 +610,60 @@ function handleLivePacket(packet) {
     document.querySelectorAll(".hwMonitorJson").forEach(el => el.textContent = gncStr);
   }
 
-  // 7. Update Top KPIs if in Ground Mode
-  if (state.missionMode === "GROUND_DEMONSTRATOR") {
-    const tCount = packet.tracks?.length || 0;
-    const k1 = document.getElementById("kpiTotal");
-    const k2 = document.getElementById("kpiHazardous");
-    const k3 = document.getElementById("kpiReusable");
+  // 7. Update Dedicated Live Tab KPIs (Never touches video/gallery/telemetry KPIs)
+  const tCount = packet.tracks?.length || 0;
+  const liveK1 = document.getElementById("liveKpiTotal");
+  const liveK2 = document.getElementById("liveKpiHazardous");
+  const liveK3 = document.getElementById("liveKpiReusable");
+  const liveK4 = document.getElementById("liveKpiActive");
+  const liveK5 = document.getElementById("liveKpiRisk");
 
-    if (k1) k1.textContent = tCount;
-    if (k2) {
-      k2.textContent = gnc ? gnc.state : "SEARCHING";
-      k2.style.color = gnc?.state === "FIRE_READY" ? "var(--state-active)" : (gnc?.state?.startsWith("ABORT") ? "var(--state-hazardous)" : "var(--accent-cyan)");
+  if (state.missionMode === "GROUND_DEMONSTRATOR") {
+    if (liveK1) liveK1.textContent = tCount;
+    if (liveK2) {
+      liveK2.textContent = gnc ? gnc.state : "SEARCHING";
+      liveK2.style.color = gnc?.state === "FIRE_READY" ? "var(--state-active)" : (gnc?.state?.startsWith("ABORT") ? "var(--state-hazardous)" : "var(--accent-cyan)");
     }
-    if (k3) {
+    if (liveK3) {
       const zVal = gnc?.intercept_pos ? `${gnc.intercept_pos[2].toFixed(2)} m` : "—";
-      k3.textContent = zVal;
-      k3.style.color = "var(--accent-cyan)";
+      liveK3.textContent = zVal;
+      liveK3.style.color = "var(--accent-cyan)";
+    }
+    if (state.lastKpiSummary) {
+      if (liveK4) {
+        liveK4.textContent = `${state.lastKpiSummary.capture_success_rate_pct}%`;
+        liveK4.style.color = "var(--state-active)";
+      }
+      if (liveK5) {
+        liveK5.textContent = `${state.lastKpiSummary.mean_miss_error_cm} cm`;
+        liveK5.style.color = "var(--accent-cyan)";
+      }
+    }
+  } else {
+    // Orbital Surveillance Mode in Live Stream
+    if (liveK1) liveK1.textContent = tCount;
+    let hazCount = 0, reusCount = 0, actCount = 0, totalRisk = 0;
+    (packet.tracks || []).forEach(t => {
+      if (t.risk_score >= 0.60 || t.operational_state === "Hazardous") hazCount++;
+      else if (t.operational_state === "Useful / Active") actCount++;
+      else reusCount++;
+      totalRisk += (t.risk_score || 0);
+    });
+    if (liveK2) {
+      liveK2.textContent = hazCount;
+      liveK2.style.color = "var(--state-hazardous)";
+    }
+    if (liveK3) {
+      liveK3.textContent = reusCount;
+      liveK3.style.color = "var(--state-reusable)";
+    }
+    if (liveK4) {
+      liveK4.textContent = actCount;
+      liveK4.style.color = "var(--state-active)";
+    }
+    if (liveK5) {
+      const meanRisk = tCount > 0 ? (totalRisk / tCount) : 0.0;
+      liveK5.textContent = meanRisk.toFixed(2);
     }
   }
 
@@ -1064,17 +1102,30 @@ async function updateKpiSummary() {
     const data = await res.json();
     state.lastKpiSummary = data;
 
-    const k4 = document.getElementById("kpiActive");
-    const k5 = document.getElementById("kpiRisk");
+    // 1. Dedicated Telemetry Tab KPIs (Preserved independently)
+    const tTotal = document.getElementById("telemetryKpiTotal");
+    const tSuccess = document.getElementById("telemetryKpiSuccess");
+    const tDistance = document.getElementById("telemetryKpiDistance");
+    const tError = document.getElementById("telemetryKpiError");
+    const tLatency = document.getElementById("telemetryKpiLatency");
 
+    if (tTotal) tTotal.textContent = data.total_trials || 0;
+    if (tSuccess) tSuccess.textContent = `${data.capture_success_rate_pct}%`;
+    if (tDistance) tDistance.textContent = `${(data.mean_deployment_distance_m || 3.4).toFixed(2)} m`;
+    if (tError) tError.textContent = `${data.mean_miss_error_cm} cm`;
+    if (tLatency) tLatency.textContent = `${(data.mean_latency_ms || 18.0).toFixed(1)} ms`;
+
+    // 2. Update Live Tab KPIs only if in Ground Mode
     if (state.missionMode === "GROUND_DEMONSTRATOR") {
-      if (k4) {
-        k4.textContent = `${data.capture_success_rate_pct}%`;
-        k4.style.color = "var(--state-active)";
+      const liveK4 = document.getElementById("liveKpiActive");
+      const liveK5 = document.getElementById("liveKpiRisk");
+      if (liveK4) {
+        liveK4.textContent = `${data.capture_success_rate_pct}%`;
+        liveK4.style.color = "var(--state-active)";
       }
-      if (k5) {
-        k5.textContent = `${data.mean_miss_error_cm} cm`;
-        k5.style.color = "var(--accent-cyan)";
+      if (liveK5) {
+        liveK5.textContent = `${data.mean_miss_error_cm} cm`;
+        liveK5.style.color = "var(--accent-cyan)";
       }
     }
   } catch (e) {
@@ -1305,6 +1356,21 @@ function processVideoResults(data, filename) {
   }
 
   updateInsightsBanner(state.videoSummary, state.videoTracks);
+  
+  // Dedicated Video Tab KPIs (Isolated from other workspaces)
+  const vSum = state.videoSummary || {};
+  const vTotal = document.getElementById("videoKpiTotal");
+  const vHaz = document.getElementById("videoKpiHazardous");
+  const vReus = document.getElementById("videoKpiReusable");
+  const vAct = document.getElementById("videoKpiActive");
+  const vRisk = document.getElementById("videoKpiRisk");
+
+  if (vTotal) vTotal.textContent = vSum.total_objects || state.videoTracks?.length || 0;
+  if (vHaz) vHaz.textContent = vSum.hazardous_count || 0;
+  if (vReus) vReus.textContent = vSum.reusable_count || 0;
+  if (vAct) vAct.textContent = vSum.active_count || 0;
+  if (vRisk) vRisk.textContent = (vSum.mean_risk || 0.0).toFixed(2);
+
   if (state.missionMode === "ORBITAL_SURVEILLANCE") {
     updateDashboardKPIs(state.videoSummary);
   }
@@ -1725,6 +1791,20 @@ async function runGalleryDetection() {
       }
     }
 
+    // Dedicated Photo / Gallery Tab KPIs (Isolated from other workspaces)
+    const gSum = state.imageSummary || {};
+    const gTotal = document.getElementById("galleryKpiTotal");
+    const gHaz = document.getElementById("galleryKpiHazardous");
+    const gReus = document.getElementById("galleryKpiReusable");
+    const gAct = document.getElementById("galleryKpiActive");
+    const gRisk = document.getElementById("galleryKpiRisk");
+
+    if (gTotal) gTotal.textContent = gSum.total_objects || state.imageDetections?.length || 0;
+    if (gHaz) gHaz.textContent = gSum.hazardous_count || 0;
+    if (gReus) gReus.textContent = gSum.reusable_count || 0;
+    if (gAct) gAct.textContent = gSum.active_count || 0;
+    if (gRisk) gRisk.textContent = (gSum.mean_risk || 0.0).toFixed(2);
+
     if (state.missionMode === "ORBITAL_SURVEILLANCE") {
       updateDashboardKPIs(state.imageSummary);
     }
@@ -1884,11 +1964,27 @@ function renderBoundingBoxes(ctx, detections) {
 function updateDashboardKPIs(summary) {
   if (!summary) return;
 
-  const totalEl = document.getElementById("kpiTotal");
-  const hazEl = document.getElementById("kpiHazardous");
-  const reusEl = document.getElementById("kpiReusable");
-  const actEl = document.getElementById("kpiActive");
-  const riskEl = document.getElementById("kpiRisk");
+  // Route to the currently active tab if appropriate
+  let totalEl, hazEl, reusEl, actEl, riskEl;
+  if (state.activeTab === "tabVideo") {
+    totalEl = document.getElementById("videoKpiTotal");
+    hazEl = document.getElementById("videoKpiHazardous");
+    reusEl = document.getElementById("videoKpiReusable");
+    actEl = document.getElementById("videoKpiActive");
+    riskEl = document.getElementById("videoKpiRisk");
+  } else if (state.activeTab === "tabGallery") {
+    totalEl = document.getElementById("galleryKpiTotal");
+    hazEl = document.getElementById("galleryKpiHazardous");
+    reusEl = document.getElementById("galleryKpiReusable");
+    actEl = document.getElementById("galleryKpiActive");
+    riskEl = document.getElementById("galleryKpiRisk");
+  } else if (state.activeTab === "tabLive") {
+    totalEl = document.getElementById("liveKpiTotal");
+    hazEl = document.getElementById("liveKpiHazardous");
+    reusEl = document.getElementById("liveKpiReusable");
+    actEl = document.getElementById("liveKpiActive");
+    riskEl = document.getElementById("liveKpiRisk");
+  }
 
   if (totalEl) totalEl.textContent = summary.total_objects || 0;
   if (hazEl) hazEl.textContent = summary.hazardous_count || 0;

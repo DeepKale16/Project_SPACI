@@ -138,42 +138,39 @@
       </div>
     </div>
 
-    <!-- Top KPI Mission Status Bar (Always Visible Across Workspaces) -->
-    <section class="kpi-grid" style="margin-bottom: 1.5rem;">
-      <div class="kpi-card" id="kpiCardTotal">
-        <div class="kpi-label">Field of View Targets</div>
-        <div class="kpi-value" id="kpiTotal">0</div>
-        <div class="kpi-sub">Total Objects in Sight</div>
-      </div>
-      <div class="kpi-card hazardous" id="kpiCardHazardous">
-        <div class="kpi-label">Hazardous Threat</div>
-        <div class="kpi-value" id="kpiHazardous" style="color: var(--state-hazardous);">0</div>
-        <div class="kpi-sub">CAM Trigger (Risk > 0.60)</div>
-      </div>
-      <div class="kpi-card reusable" id="kpiCardReusable">
-        <div class="kpi-label">Reusable / Salvage</div>
-        <div class="kpi-value" id="kpiReusable" style="color: var(--state-reusable);">0</div>
-        <div class="kpi-sub">Serviceable Spacecraft Bus</div>
-      </div>
-      <div class="kpi-card active-sat" id="kpiCardActive">
-        <div class="kpi-label">Useful / Active</div>
-        <div class="kpi-value" id="kpiActive" style="color: var(--state-active);">0</div>
-        <div class="kpi-sub">Operational Satellite Asset</div>
-      </div>
-      <div class="kpi-card" id="kpiCardRisk">
-        <div class="kpi-label">Mean Risk Index</div>
-        <div class="kpi-value" id="kpiRisk">0.00</div>
-        <div class="kpi-sub">0.0 (Safe) → 1.0 (Critical)</div>
-      </div>
-    </section>
-
     <!-- ==================================================================== -->
-    <!-- PRIMARY UNIFIED MISSION CONTROL COCKPIT (ALL MODES & RESULTS)        -->
-    <!-- ==================================================================== -->
-        <!-- ==================================================================== -->
     <!-- TAB 1: REAL-TIME LIVE & CLOSED-LOOP GNC                              -->
     <!-- ==================================================================== -->
     <div class="tab-panel" id="tabLive">
+
+      <!-- Dedicated Live KPI Status Bar (Real-Time Sensor & GNC Telemetry) -->
+      <section class="kpi-grid" style="margin-bottom: 1.2rem;">
+        <div class="kpi-card" id="liveKpiCardTotal">
+          <div class="kpi-label" id="liveLblTotal">Field of View Targets</div>
+          <div class="kpi-value" id="liveKpiTotal">0</div>
+          <div class="kpi-sub" id="liveSubTotal">Live Stream FoV Count</div>
+        </div>
+        <div class="kpi-card hazardous" id="liveKpiCardHazardous">
+          <div class="kpi-label" id="liveLblHazardous">Hazardous Threat</div>
+          <div class="kpi-value" id="liveKpiHazardous" style="color: var(--state-hazardous);">0</div>
+          <div class="kpi-sub" id="liveSubHazardous">CAM Trigger (Risk &gt; 0.60)</div>
+        </div>
+        <div class="kpi-card reusable" id="liveKpiCardReusable">
+          <div class="kpi-label" id="liveLblReusable">Reusable / Salvage</div>
+          <div class="kpi-value" id="liveKpiReusable" style="color: var(--state-reusable);">0</div>
+          <div class="kpi-sub" id="liveSubReusable">Serviceable Target Bus</div>
+        </div>
+        <div class="kpi-card active-sat" id="liveKpiCardActive">
+          <div class="kpi-label" id="liveLblActive">Useful / Active</div>
+          <div class="kpi-value" id="liveKpiActive" style="color: var(--state-active);">0</div>
+          <div class="kpi-sub" id="liveSubActive">Operational Satellite Asset</div>
+        </div>
+        <div class="kpi-card" id="liveKpiCardRisk">
+          <div class="kpi-label" id="liveLblRisk">Mean Risk Index</div>
+          <div class="kpi-value" id="liveKpiRisk">0.00</div>
+          <div class="kpi-sub" id="liveSubRisk">0.0 (Safe) → 1.0 (Critical)</div>
+        </div>
+      </section>
 
       <!-- Live Stream Source Switcher -->
       <section class="glass-panel" style="padding: 0.8rem 1.4rem; margin-bottom: 1.2rem;">
@@ -506,6 +503,35 @@
         </div>
       </div>
 
+      <!-- Dedicated Video Workspace KPI Status Bar -->
+      <section class="kpi-grid" style="margin-bottom: 1.2rem;">
+        <div class="kpi-card" id="videoKpiCardTotal">
+          <div class="kpi-label">Video Trajectory Targets</div>
+          <div class="kpi-value" id="videoKpiTotal">0</div>
+          <div class="kpi-sub">BoT-SORT Ingestion Tracks</div>
+        </div>
+        <div class="kpi-card hazardous" id="videoKpiCardHazardous">
+          <div class="kpi-label">Hazardous Collision Threats</div>
+          <div class="kpi-value" id="videoKpiHazardous" style="color: var(--state-hazardous);">0</div>
+          <div class="kpi-sub">NASA CAM Trigger (Risk &gt; 0.60)</div>
+        </div>
+        <div class="kpi-card reusable" id="videoKpiCardReusable">
+          <div class="kpi-label">Reusable Spacecraft Bus</div>
+          <div class="kpi-value" id="videoKpiReusable" style="color: var(--state-reusable);">0</div>
+          <div class="kpi-sub">On-Orbit Servicing Candidate</div>
+        </div>
+        <div class="kpi-card active-sat" id="videoKpiCardActive">
+          <div class="kpi-label">Useful / Active Satellites</div>
+          <div class="kpi-value" id="videoKpiActive" style="color: var(--state-active);">0</div>
+          <div class="kpi-sub">Operational Asset Protected</div>
+        </div>
+        <div class="kpi-card" id="videoKpiCardRisk">
+          <div class="kpi-label">Mean Encounter Risk</div>
+          <div class="kpi-value" id="videoKpiRisk">0.00</div>
+          <div class="kpi-sub">Hypervelocity Conjunction</div>
+        </div>
+      </section>
+
       <div class="workspace-layout">
         
         <!-- Left: HUD Video Viewport Stage -->
@@ -802,6 +828,35 @@
         </div>
       </div>
 
+      <!-- Dedicated Photo / Catalog Workspace KPI Status Bar -->
+      <section class="kpi-grid" style="margin-bottom: 1.2rem;">
+        <div class="kpi-card" id="galleryKpiCardTotal">
+          <div class="kpi-label">Optical Identified Objects</div>
+          <div class="kpi-value" id="galleryKpiTotal">0</div>
+          <div class="kpi-sub">11-Class Deep Model Detections</div>
+        </div>
+        <div class="kpi-card hazardous" id="galleryKpiCardHazardous">
+          <div class="kpi-label">Hazardous Debris Objects</div>
+          <div class="kpi-value" id="galleryKpiHazardous" style="color: var(--state-hazardous);">0</div>
+          <div class="kpi-sub">Certified for ADR Net Capture</div>
+        </div>
+        <div class="kpi-card reusable" id="galleryKpiCardReusable">
+          <div class="kpi-label">Reusable Spacecraft Parts</div>
+          <div class="kpi-value" id="galleryKpiReusable" style="color: var(--state-reusable);">0</div>
+          <div class="kpi-sub">Derelict Rocket Body / Bus</div>
+        </div>
+        <div class="kpi-card active-sat" id="galleryKpiCardActive">
+          <div class="kpi-label">Useful / Active Payloads</div>
+          <div class="kpi-value" id="galleryKpiActive" style="color: var(--state-active);">0</div>
+          <div class="kpi-sub">Active Science / Commercial Sat</div>
+        </div>
+        <div class="kpi-card" id="galleryKpiCardRisk">
+          <div class="kpi-label">Optical Threat Prior</div>
+          <div class="kpi-value" id="galleryKpiRisk">0.00</div>
+          <div class="kpi-sub">COPUOS / NASA Safety Baseline</div>
+        </div>
+      </section>
+
       <!-- Pre-Loaded Space Object Gallery Strip -->
       <section class="glass-panel" style="padding: 1.2rem 1.5rem 0.6rem 1.5rem; margin-bottom: 1.2rem;">
         <div class="panel-header" style="margin-bottom: 0.6rem;">
@@ -1075,6 +1130,36 @@
     <!-- TAB 4: FLIGHT & NET CAPTURE TELEMETRY RECORDS                        -->
     <!-- ==================================================================== -->
     <div class="tab-panel hidden" id="tabTelemetry">
+
+      <!-- Dedicated Telemetry & Master SQLite Trials Database KPI Bar -->
+      <section class="kpi-grid" style="margin-bottom: 1.2rem;">
+        <div class="kpi-card">
+          <div class="kpi-label">Historical Trials Executed</div>
+          <div class="kpi-value" id="telemetryKpiTotal">4</div>
+          <div class="kpi-sub">Logged SQLite Hardware Runs</div>
+        </div>
+        <div class="kpi-card active-sat">
+          <div class="kpi-label">Capture Success Rate</div>
+          <div class="kpi-value" id="telemetryKpiSuccess" style="color: var(--state-active);">50.0%</div>
+          <div class="kpi-sub">Empirical Net Capture Success</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Deployment Distance</div>
+          <div class="kpi-value" id="telemetryKpiDistance" style="color: var(--accent-cyan);">3.40 m</div>
+          <div class="kpi-sub">Mean Physical Ejection Reach</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Mean Miss Error</div>
+          <div class="kpi-value" id="telemetryKpiError" style="color: var(--accent-cyan);">4.5 cm</div>
+          <div class="kpi-sub">Ballistic Quartic Residual</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">GNC Pipeline Latency</div>
+          <div class="kpi-value" id="telemetryKpiLatency">18.0 ms</div>
+          <div class="kpi-sub">30 FPS Frame-Locked Cycle</div>
+        </div>
+      </section>
+
       <section class="glass-panel">
         <div class="panel-header" style="flex-wrap: wrap; gap: 12px;">
           <div>
