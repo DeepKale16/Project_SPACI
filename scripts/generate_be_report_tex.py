@@ -65,12 +65,12 @@ def create_be_report_tex():
     {\bf BACHELOR OF TECHNOLOGY}\\
     {\bf (ARTIFICIAL INTELLIGENCE \& DATA SCIENCE / COMPUTER ENGINEERING)}\\
     \vspace{0.15in}
-    {\bf SUBMITTED BY}\\
+    {\bf SUBMITTED BY (PROJECT GROUP NO. 02)}\\
     \vspace{0.1in}
     {\small  
-    Mr. Deep Ravindra Kale \hspace*{1.1 in} Exam Seat No: <Seat No> \\
-    Mr. <Student Name 2> \hspace*{1.3 in} Exam Seat No: <Seat No 2> \\
-    Mr. <Student Name 3> \hspace*{1.3 in} Exam Seat No: <Seat No 3> \\
+    Mr. Shubham Jadhav \hspace*{0.95 in} Roll No: 49 / PRN: 23410048 \\
+    Mr. Deep Kale \hspace*{1.25 in} Roll No: 55 / PRN: 23410052 \\
+    Mr. Mohit Khairnar \hspace*{1.0 in} Roll No: 60 / PRN: 23410060 \\
     }
     \vspace{0.15in}
     {\bfseries \fontsize{12}{12} \selectfont Under The Guidance of \\} 
@@ -104,11 +104,11 @@ def create_be_report_tex():
     {\small This is to certify that the project report entitled \\}
     {\bf \large {``SPACI: DEEP LEARNING-BASED AUTONOMOUS SPACE DEBRIS MULTI-CLASS DETECTION, ORBITAL VIDEO KINEMATIC TRACKING, AND COLLISION RISK ASSESSMENT SOFTWARE SYSTEM''}}\\
     \vspace{0.1in}
-    Submitted by \\ 	
+    Submitted by (Project Group No. 02) \\ 	
     {\small  
-    Mr. Deep Ravindra Kale \hspace*{1.1 in} PRN: 72312016B \\
-    Mr. <Student Name 2> \hspace*{1.3 in} PRN: <PRN No 2> \\
-    Mr. <Student Name 3> \hspace*{1.3 in} PRN: <PRN No 3> 
+    Mr. Shubham Jadhav \hspace*{0.95 in} Roll No: 49 / PRN: 23410048 \\
+    Mr. Deep Kale \hspace*{1.25 in} Roll No: 55 / PRN: 23410052 \\
+    Mr. Mohit Khairnar \hspace*{1.0 in} Roll No: 60 / PRN: 23410060 
     }
     \end{center}
     \vspace{0.1in}
@@ -151,10 +151,10 @@ We are profoundly grateful to our respected Principal \textbf{Dr. P.B. Mane} for
 \vspace{20mm} 
 \begin{flushright}
 \begin{minipage}{2.8 in}
-\textbf{Mr. Deep Ravindra Kale}\\
-\textbf{Mr. <Student Name 2>}\\
-\textbf{Mr. <Student Name 3>}\\
-(B.Tech AI \& DS / Computer Engineering)\\
+\textbf{Mr. Shubham Jadhav (Roll No. 49)}\\
+\textbf{Mr. Deep Kale (Roll No. 55)}\\
+\textbf{Mr. Mohit Khairnar (Roll No. 60)}\\
+(Project Group No. 02, B.Tech Computer Engineering)\\
 AISSMS IOIT, Pune.
 \end{minipage}
 \end{flushright}

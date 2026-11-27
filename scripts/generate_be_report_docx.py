@@ -196,7 +196,7 @@ def build_be_project_report(output_path):
     # Students Box
     p_by = doc.add_paragraph()
     p_by.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = p_by.add_run("SUBMITTED BY\n")
+    r = p_by.add_run("SUBMITTED BY (PROJECT GROUP NO. 02)\n")
     r.font.name = "Arial"
     r.font.size = Pt(10)
     r.font.bold = True
@@ -204,9 +204,9 @@ def build_be_project_report(output_path):
     stu_t = doc.add_table(rows=3, cols=2)
     stu_t.alignment = WD_TABLE_ALIGNMENT.CENTER
     s_data = [
-        ("Mr. Deep Ravindra Kale", "Exam Seat No: <Seat No> / PRN: 72312016B"),
-        ("Mr. <Student Name 2>", "Exam Seat No: <Seat No 2> / PRN: <PRN 2>"),
-        ("Mr. <Student Name 3>", "Exam Seat No: <Seat No 3> / PRN: <PRN 3>")
+        ("Mr. Shubham Jadhav", "Roll No: 49  /  PRN: 23410048"),
+        ("Mr. Deep Kale", "Roll No: 55  /  PRN: 23410052"),
+        ("Mr. Mohit Khairnar", "Roll No: 60  /  PRN: 23410060")
     ]
     for r_idx, (s_name, s_no) in enumerate(s_data):
         row = stu_t.rows[r_idx]
@@ -292,7 +292,7 @@ def build_be_project_report(output_path):
     p_c_stu = doc.add_paragraph()
     p_c_stu.paragraph_format.left_indent = Inches(0.5)
     p_c_stu.paragraph_format.space_after = Pt(6)
-    r = p_c_stu.add_run("1. Mr. Deep Ravindra Kale (Exam Seat No: <Seat No> / PRN: 72312016B)\n2. Mr. <Student Name 2> (Exam Seat No: <Seat No 2> / PRN: <PRN 2>)\n3. Mr. <Student Name 3> (Exam Seat No: <Seat No 3> / PRN: <PRN 3>)")
+    r = p_c_stu.add_run("Project Group No. 02:\n1. Mr. Shubham Jadhav (Roll No. 49 / PRN: 23410048)\n2. Mr. Deep Kale (Roll No. 55 / PRN: 23410052)\n3. Mr. Mohit Khairnar (Roll No. 60 / PRN: 23410060)")
     r.font.name = "Times New Roman"
     r.font.size = Pt(10.5)
     r.font.bold = True
@@ -347,7 +347,7 @@ def build_be_project_report(output_path):
     p_stu_sig = doc.add_paragraph()
     p_stu_sig.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     p_stu_sig.paragraph_format.space_before = Pt(25)
-    r = p_stu_sig.add_run("Deep Ravindra Kale\n<Student Name 2>\n<Student Name 3>\n(B.Tech AI & DS / Computer Engineering)\nAISSMS IOIT, Pune")
+    r = p_stu_sig.add_run("Shubham Jadhav (Roll No. 49)\nDeep Kale (Roll No. 55)\nMohit Khairnar (Roll No. 60)\n(Project Group No. 02 — B.Tech Computer Engineering)\nAISSMS IOIT, Pune")
     r.font.name = "Arial"
     r.font.size = Pt(9.5)
     r.font.bold = True

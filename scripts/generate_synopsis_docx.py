@@ -142,16 +142,17 @@ def create_official_synopsis_docx(output_path):
     add_cover_line("BACHELOR OF TECHNOLOGY IN COMPUTER ENGINEERING", size=12, bold=True, color=(0, 0, 0), space_before=1, space_after=8)
 
     # Exact Cover Student Table (Text = Times New Roman 10 pt)
+    add_cover_line("PROJECT GROUP NO. 02", size=11.5, bold=True, color=(15, 30, 75), space_before=4, space_after=4)
     cov_stu = doc.add_table(rows=4, cols=2)
     cov_stu.alignment = WD_TABLE_ALIGNMENT.CENTER
     cov_stu.autofit = False
     set_table_borders(cov_stu, color="475569", sz="6")
 
     stu_cover_data = [
-        ("Student Name", "Seat / PRN No."),
-        ("Deep Ravindra Kale", "PRN: 72312016B / Seat No: <Seat No 1>"),
-        ("<Student Name 2>", "PRN: <PRN No 2> / Seat No: <Seat No 2>"),
-        ("<Student Name 3>", "PRN: <PRN No 3> / Seat No: <Seat No 3>"),
+        ("Student Name", "Roll No. / PRN No."),
+        ("Shubham Jadhav", "Roll No. 49  |  PRN: 23410048"),
+        ("Deep Kale", "Roll No. 55  |  PRN: 23410052"),
+        ("Mohit Khairnar", "Roll No. 60  |  PRN: 23410060"),
     ]
     for r_idx, (col1, col2) in enumerate(stu_cover_data):
         row = cov_stu.rows[r_idx]
@@ -290,7 +291,7 @@ def create_official_synopsis_docx(output_path):
             ("Project Title", "SPACI: AI-Driven Space Debris Verification, Salvageable Element Detection, and Safe Capture Risk Assessment Software System"),
             ("Project Type", "Sponsored / Software Product / Applied AI & Computer Vision Research System"),
             ("Industry Sponsor", "Dr. Vikas Shinde (Aaryans Group)"),
-            ("Student Details", "1. Deep Ravindra Kale (PRN: 72312016B) | 2. <Student Name 2> | 3. <Student Name 3>\nProgramme: B.Tech (Computer Engineering) | Academic Year: 2026–27"),
+            ("Student Details", "Project Group No. 02:\n1. Shubham Jadhav (Roll No. 49, PRN: 23410048)\n2. Deep Kale (Roll No. 55, PRN: 23410052)\n3. Mohit Khairnar (Roll No. 60, PRN: 23410060)\nProgramme: B.Tech (Computer Engineering) | Academic Year: 2026–27"),
             ("Guide / Supervisor", "<GUIDE NAME>, Assistant / Associate Professor, Dept. of Computer Engineering, AISSMS IOIT, Pune"),
             ("SDG Mapping", "SDG #9 – Industry, Innovation & Infrastructure (Target 9.5) | SDG #11 – Sustainable Cities & Space Infrastructure (Target 11.B) | SDG #12 – Circular Space Economy (Target 12.5)")
         ],
