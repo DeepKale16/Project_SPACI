@@ -66,9 +66,9 @@ def make_decision_flowchart():
 
     # Row 2: YOLO11s + BoT-SORT
     draw_box(
-        4.1, 7.05, 4.8, 0.66,
-        "YOLO11s 11-Class Detector + BoT-SORT Tracker\n(Bounding Boxes, Class Probabilities, Track IDs, Tumble σ²_AR)",
-        bg="#EFF6FF", border="#1D4ED8", tc="#1E3A8A"
+        4.1, 7.05, 4.9, 0.66,
+        "YOLO11s Scalable Multi-Class Detector + BoT-SORT Tracker\n(Baseline 11 Classes -> Expandable Large Dataset | Track IDs & Tumble σ²_AR)",
+        bg="#EFF6FF", border="#1D4ED8", tc="#1E3A8A", fs=8.0
     )
     arrow(4.1, 7.66, 4.1, 7.46)
 
@@ -176,7 +176,7 @@ def make_application_block_diagram():
         ]),
         ("2. AI Detection & Tracking", 2.55, 0.7, 2.1, 4.7, "#EFF6FF", "#1D4ED8", [
             "Frame Normalizer\n(640x640 RGB Tensor)",
-            "YOLO11s Engine\n(9.42M Params, 11 Classes)",
+            "YOLO11s Engine\n(Scalable Multi-Class Model)",
             "BoT-SORT Tracker\n(Persistent Track IDs)",
             "Tumble Estimator\n(15-Frame Variance σ²_AR)"
         ]),

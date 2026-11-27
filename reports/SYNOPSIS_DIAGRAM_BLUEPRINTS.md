@@ -12,7 +12,7 @@ If you ever want to redraw, customize, or restyle any diagram in **Draw.io (diag
 ### Mermaid Code (Paste at https://mermaid.live to edit/export SVG/PNG)
 ```mermaid
 flowchart TD
-    A["Optical Input Ingestion & Preprocessing (640x640)<br/>Orbital Video Feed / Live Camera / Simulated LiDAR"] --> B["YOLO11s 11-Class Detector + BoT-SORT Tracker<br/>Bounding Boxes, Class Probs, Track IDs, Tumble σ²_AR"]
+    A["Optical Input Ingestion & Preprocessing (640x640)<br/>Orbital Video Feed / Live Camera / Simulated LiDAR"] --> B["YOLO11s Scalable Multi-Class Detector + BoT-SORT Tracker<br/>Baseline 11 Classes -> Expandable Large Dataset | Track IDs & Tumble σ²_AR"]
     B --> C{"STAGE 1: Verification<br/>Is Object Real Debris?"}
     C -- "NO (Active Satellite)" --> D["STATE: USEFUL / ACTIVE<br/>(CHEOPS, SOHO, PROBA)<br/>Action: Stand-off Clearance"]
     C -- "YES (Confirmed Debris)" --> E{"STAGE 2: Salvage Check<br/>Useful / Reusable Elements?"}
@@ -40,7 +40,7 @@ flowchart TD
    - `Simulated ToF LiDAR Range Sensor Feed`
 2. **Column 2 — AI Detection & Tracking**
    - `Frame Normalizer (640x640 RGB Tensor)`
-   - `YOLO11s Engine (9.42M Params, 11 Classes)`
+   - `YOLO11s Engine (Scalable Multi-Class Model)`
    - `BoT-SORT Tracker (Persistent Track IDs)`
    - `Tumble Estimator (15-Frame Variance σ²_AR)`
 3. **Column 3 — Salvage & Risk Logic**
